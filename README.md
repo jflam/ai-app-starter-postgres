@@ -54,11 +54,52 @@ npm run client	cd client && npm run dev
 * **Zero scaffolding** – fork ➜ clone ➜ `npm run dev` ➜ start prompting.
 
 ## Getting started
-The first server start automatically:
 
-Runs the migration creating fortunes table.
-Seeds it with sample data.
-Hot‑reloads on TypeScript changes.
+1. **Fork & clone**
+   ```bash
+   gh repo fork ai-starter-app --clone
+   cd ai-starter-app
+   ```
+
+2. **Install dependencies**
+
+   **Option A (one‑liner)**  
+   ```bash
+   npm run bootstrap
+   ```
+
+   **Option B (manual)**  
+   ```bash
+   npm install          # root
+   cd server && npm install
+   cd ../client && npm install
+   cd ..
+   ```
+
+3. **Run the dev stack**
+
+   ```bash
+   npm run dev
+   ```
+
+   • React/Vite SPA on **http://localhost:3000**  
+   • Express/Knex API on **http://localhost:4000**
+
+   The first boot automatically:
+   * runs the latest migration,
+   * seeds the SQLite DB with sample fortunes,
+   * hot‑reloads on TypeScript changes.
+
+4. **Verify the demo endpoint**
+
+   ```bash
+   curl http://localhost:4000/api/fortunes/random
+   ```
+
+   Returns: `{ "id": 7, "text": "Your shoes will make you happy today." }`
+
+5. **Start prompting your AI assistant** – the stack is live; add routes, components, or tests right away.
+
 ## Building for production
 Backend
 
