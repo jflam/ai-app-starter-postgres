@@ -10,43 +10,60 @@ This monorepo ships a minimal “random fortune” demo to prove everything work
 
 ## Folder layout
 
-1. Backend (server)
-Key files
+```text
+/ (root)
+├─ server/     → Express + Knex backend
+├─ client/     → React + Vite front‑end
+└─ README.md
+```
 
-index.ts – Express entry point with one route (GET /api/fortunes/random).
-db.ts – Knex instance wired to SQLite via knexfile.js.
-20250423_create_fortunes_table.js – creates fortunes table.
-01_fortunes_seed.js – inserts 20 example fortunes.
-Important npm scripts (see server/package.json)
+### server/ (Backend)
 
-Script	What it does
-npm run dev	Runs latest migration & seed, then hot‑reloads via ts-node-dev.
-npm run migrate	knex migrate:latest
-npm run seed	knex seed:run
-npm run build	Type‑checks & emits JS to server/dist/
-Server starts on http://localhost:4000 (port can be overridden via PORT env).
+**Key files**
+- `index.ts` – Express entry point (exposes `GET /api/fortunes/random`)
+- `db.ts` – Knex instance configured via `knexfile.js`
+- `migrations/20250423_create_fortunes_table.js` – creates the `fortunes` table
+- `seeds/01_fortunes_seed.js` – inserts 20 sample fortunes
 
-2. Front‑end (client)
-Key files
+**npm scripts**
 
-App.tsx – React component showing the fortune.
-main.tsx – app bootstrap.
-vite.config.ts – dev server on port 3000 with a proxy to /api → http://localhost:4000.
-npm scripts (see client/package.json)
+| Script | Purpose |
+| ------ | ------- |
+| `npm run dev` | Runs latest migration & seed, then hot‑reloads via `ts-node-dev` |
+| `npm run migrate` | `knex migrate:latest` |
+| `npm run seed` | `knex seed:run` |
+| `npm run build` | Type‑checks & emits JS to `server/dist/` |
 
-Script	Purpose
-npm run dev	Launch Vite dev server with HMR
-npm run build	Production build to client/dist/
-npm run preview	Preview the build locally
-The SPA calls /api/fortunes/random; the Vite proxy forwards it to the Express server during development.
+Server listens on **http://localhost:4000** (`PORT` env var overrides).
 
-3. Root workspace
-package.json only installs concurrently and wires both apps:
+### client/ (Front‑end)
 
-Script	Runs
-npm run dev	Starts server + client in parallel
-npm run server	cd server && npm run dev
-npm run client	cd client && npm run dev
+**Key files**
+- `App.tsx` – React component that shows the fortune
+- `main.tsx` – App bootstrap
+- `vite.config.ts` – Dev server on port 3000 (proxy `/api` → `http://localhost:4000`)
+
+**npm scripts**
+
+| Script | Purpose |
+| ------ | ------- |
+| `npm run dev` | Launch Vite dev server with HMR |
+| `npm run build` | Production build to `client/dist/` |
+| `npm run preview` | Preview the build locally |
+
+The SPA calls `/api/fortunes/random`; Vite proxies the request to the Express server during development.
+
+### root/
+
+Contains only a `package.json` that orchestrates both apps.
+
+| Script | Runs |
+| ------ | ---- |
+| `npm run dev` | Starts server & client in parallel |
+| `npm run server` | `cd server && npm run dev` |
+| `npm run client` | `cd client && npm run dev` |
+| `npm run bootstrap` | Installs dependencies in root, server and client |
+
 ## Why this repo?
 * **Curated dependencies** – Express, Knex, React, Vite, TypeScript, ESLint & Prettier all pre‑configured.  
 * **Batteries included** – hot reload, DB migrations, seeding, proxying, and split dev servers work out of the box.  
