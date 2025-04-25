@@ -102,6 +102,24 @@ Contains only a `package.json` that orchestrates both apps.
    • React/Vite SPA on **http://localhost:3000**  
    • Express/Knex API on **http://localhost:4000**
 
+### Understanding the logs
+
+The root `npm run dev` script is powered by **concurrently**.  
+It launches two child processes and prefixes every log line so you can
+distinguish their origins:
+
+| Prefix  | Color | Source                       |
+| ------- | ----- | ---------------------------- |
+| `SERVER`| blue  | Express / Knex backend       |
+| `CLIENT`| green | React / Vite front‑end       |
+
+Example output:
+
+```
+SERVER  🪄 Fortune API listening at http://localhost:4000
+CLIENT  VITE v5.0.0  ready in 300 ms  ➜  http://localhost:3000
+```
+
    The first boot automatically:
    * runs the latest migration,
    * seeds the SQLite DB with sample fortunes,
@@ -118,11 +136,42 @@ Contains only a `package.json` that orchestrates both apps.
 5. **Start prompting your AI assistant** – the stack is live; add routes, components, or tests right away.
 
 ## Building for production
-Backend
 
-Frontend
+### 1. Compile the backend (server)
 
-Serve compiled assets with any static host or integrate into a single Express build as needed.
+```bash
+cd server
+npm install        # first‑time only
+npm run build      # emits JS to server/dist/
+NODE_ENV=production node dist/index.js
+```
+
+### 2. Build the front‑end (client)
+
+```bash
+cd client
+npm install        # first‑time only
+npm run build      # outputs static assets to client/dist/
+```
+
+### 3. Serve the SPA
+
+Any static host (Nginx, Netlify, Vercel, S3, etc.) can serve the `client/dist/` folder.
+
+Local preview:
+
+```bash
+cd client
+npm run preview    # opens http://localhost:4173
+```
+
+### 4. One‑shot helper from the repo root
+
+```bash
+npm run bootstrap                     # ensure all deps
+(cd server && npm run build) \
+  && (cd client && npm run build)
+```
 
 ## Environment variables
 Only the server respects PORT (default 4000). Add more as your app grows.
