@@ -1,179 +1,79 @@
-# Petbnb Starter 🐾
+# AI Starter App
 
-Petbnb Starter is an **opinionated TypeScript/Node template** built to be **modified by a large‑language model (LLM)**.  
-It focuses on clear structure, strict typing, and automated tooling so you can prototype quickly or hand over incremental tasks to an LLM with minimal friction.
+Opinionated full‑stack skeleton meant to be **forked and cloned** so you (or your AI pair‑programmer) can start coding features immediately instead of scaffolding a project from scratch.
 
----
+## Repository overview
+This monorepo ships a minimal “random fortune” demo to prove everything works end‑to‑end, but the real goal is to provide a ready‑to‑hack stack for rapid AI‑assisted development:
 
-## Table of Contents
-1. Purpose
-2. Prerequisites
-3. Quick Start
-4. Project Structure
-5. Environment Variables
-6. Scripts
-7. Testing, Linting & Formatting
-8. Build & Deployment
-9. Extending with an LLM
-10. Contributing
-11. License
+• Backend – an Express + Knex + SQLite API that returns one random fortune
+• Front‑end – a React/Vite SPA that fetches and shows it
 
----
+## Folder layout
 
-## 1. Purpose
+1. Backend (server)
+Key files
 
-• Provide a minimal yet realistic backend scaffold.  
-• Demonstrate best‑practice tooling (TypeScript, ESLint, Prettier, Husky, Jest).  
-• Keep code small and well‑typed so GPT‑style models can reason about it easily.  
-• Be opinionated—but replace anything you dislike.
+index.ts – Express entry point with one route (GET /api/fortunes/random).
+db.ts – Knex instance wired to SQLite via knexfile.js.
+20250423_create_fortunes_table.js – creates fortunes table.
+01_fortunes_seed.js – inserts 20 example fortunes.
+Important npm scripts (see server/package.json)
 
----
+Script	What it does
+npm run dev	Runs latest migration & seed, then hot‑reloads via ts-node-dev.
+npm run migrate	knex migrate:latest
+npm run seed	knex seed:run
+npm run build	Type‑checks & emits JS to server/dist/
+Server starts on http://localhost:4000 (port can be overridden via PORT env).
 
-## 2. Prerequisites
+2. Front‑end (client)
+Key files
 
-| Tool | Version (tested) | Notes              |
-| ---- | ---------------- | ------------------ |
-| Node | ≥ 18.x           | Runtime            |
-| npm  | ≥ 9.x            | Dependency manager |
-| git  | any              | Version control    |
+App.tsx – React component showing the fortune.
+main.tsx – app bootstrap.
+vite.config.ts – dev server on port 3000 with a proxy to /api → http://localhost:4000.
+npm scripts (see client/package.json)
 
-Verify:
+Script	Purpose
+npm run dev	Launch Vite dev server with HMR
+npm run build	Production build to client/dist/
+npm run preview	Preview the build locally
+The SPA calls /api/fortunes/random; the Vite proxy forwards it to the Express server during development.
 
-```bash
-node -v
-npm -v
-git --version
-```
+3. Root workspace
+package.json only installs concurrently and wires both apps:
 
----
+Script	Runs
+npm run dev	Starts server + client in parallel
+npm run server	cd server && npm run dev
+npm run client	cd client && npm run dev
+## Why this repo?
+* **Curated dependencies** – Express, Knex, React, Vite, TypeScript, ESLint & Prettier all pre‑configured.  
+* **Batteries included** – hot reload, DB migrations, seeding, proxying, and split dev servers work out of the box.  
+* **AI friendly** – consistent code style and simple architecture make it easy for tools like GitHub Copilot or ChatGPT to suggest accurate changes.  
+* **Zero scaffolding** – fork ➜ clone ➜ `npm run dev` ➜ start prompting.
 
-## 3. Quick Start
+## Getting started
+The first server start automatically:
 
-```bash
-git clone https://github.com/your‑org/petbnb-starter.git
-cd petbnb-starter
-cp .env.example .env   # fill in required vars
-npm install            # or: npm ci
-npm run dev            # hot‑reload server
-```
+Runs the migration creating fortunes table.
+Seeds it with sample data.
+Hot‑reloads on TypeScript changes.
+## Building for production
+Backend
 
-The dev server uses `ts-node-dev`; source lives in `src/` and is not transpiled to disk.
+Frontend
 
----
+Serve compiled assets with any static host or integrate into a single Express build as needed.
 
-## 4. Project Structure
+## Environment variables
+Only the server respects PORT (default 4000). Add more as your app grows.
 
-```
-petbnb-starter
-├── src/
-│   ├── config/        # Runtime configuration & env validation
-│   ├── controllers/   # Request handlers
-│   ├── models/        # Data models (ORM/Prisma/etc.)
-│   ├── services/      # Business logic
-│   ├── utils/         # Reusable helpers
-│   └── index.ts       # App entry
-├── test/              # Jest test suites
-├── .github/           # CI workflows
-├── .husky/            # Git hooks
-├── dist/              # Transpiled output (git‑ignored)
-├── .env.example
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
----
-
-## 5. Environment Variables
-
-1. Copy `.env.example` → `.env`.  
-2. Update values:
-
-```
-PORT=3000
-DATABASE_URL=postgres://user:pass@localhost:5432/petbnb
-```
-
-`src/config/env.ts` validates required keys at startup and throws on missing/invalid values.
-
----
-
-## 6. Scripts
-
-| Command            | Description                                   |
-| ------------------ | --------------------------------------------- |
-| `npm run dev`      | Start dev server with hot‑reload              |
-| `npm run build`    | Transpile to `dist/`                          |
-| `npm start`        | Run compiled code from `dist/`                |
-| `npm test`         | Run Jest test suites                          |
-| `npm run lint`     | ESLint codebase                               |
-| `npm run format`   | Prettier – write                              |
-| `npm run typecheck`| Run `tsc` without emitting code               |
-
-Husky hooks execute `lint` + `test` on `pre‑commit`, blocking unsafe pushes.
-
----
-
-## 7. Testing, Linting & Formatting
-
-```bash
-npm run test       # jest --coverage
-npm run lint       # eslint .
-npm run format     # prettier --write .
-```
-
-Rules follow Airbnb style with TypeScript, no implicit `any`, and Prettier for consistent whitespace.
-
----
-
-## 8. Build & Deployment
-
-### Local production build
-
-```bash
-npm run build
-NODE_ENV=production node dist/index.js
-```
-
-### Docker (optional)
-
-```bash
-docker build -t petbnb .
-docker run -p 3000:3000 --env-file .env petbnb
-```
-
-### CI (GitHub Actions)
-
-`.github/workflows/ci.yml`:
-
-1. Checkout & install  
-2. Run `lint`, `test`, `build`  
-3. Publish Docker image / deploy (placeholder – adapt for your cloud)
-
----
-
-## 9. Extending with an LLM
-
-Guidelines for best results:
-
-1. **Be explicit.** Point the model to a file/path and ask for diff‑style edits.  
-2. **Keep prompts small.** Provide only the code needed to answer.  
-3. **Request minimal patches.** Helps avoid merge conflicts.  
-4. **Trust but verify.** Run `npm test` and `npm run lint` after every change.
-
-> The project’s small, typed files make it easier for a model to navigate and reason about dependencies.
-
----
-
-## 10. Contributing
-
-1. Fork → create branch → commit → open PR.  
-2. CI must pass (`lint` + `test`).  
-3. Describe *why* not just *what* in your PR.  
-4. Squash commits before merge.
-
----
-
-## 11. License
-
-MIT © 2023 Petbnb Starter contributors
+## TL;DR
+1. Fork this repo (`gh repo fork ai-starter-app`) and clone it locally.  
+2. `npm install` in **root**, **server**, and **client**.  
+3. `npm run dev` in root  
+   * SPA: http://localhost:3000  
+   * API: http://localhost:4000  
+4. Start chatting with your AI – all dependencies are already wired together.  
+5. Example endpoint: `GET /api/fortunes/random` returns `{ id, text }`.
