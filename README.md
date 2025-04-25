@@ -101,8 +101,8 @@ If you need to install or upgrade Node.js:
 
 1. **Fork & clone**
    ```bash
-   gh repo fork ai-starter-app --clone
-   cd ai-starter-app
+   gh repo create your-new-repo --template jflam/ai-app-starter --private --clone
+   cd your-new-repo
    ```
 
 2. **Install dependencies**
