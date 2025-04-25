@@ -72,6 +72,33 @@ Contains only a `package.json` that orchestrates both apps.
 
 ## Getting started
 
+### Prerequisites
+To run the stack you only need **Node.js 20 LTS** (npm is bundled).
+
+```bash
+# check your version
+node -v   # → v20.x
+npm -v    # → 10.x
+```
+
+If you need to install or upgrade Node.js:
+
+- **nvm (recommended)**  
+  ```bash
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+  nvm install 20
+  nvm use 20
+  ```
+
+- **Homebrew (macOS)**  
+  ```bash
+  brew install node@20
+  ```
+
+- **Windows** – download the 20 LTS installer from <https://nodejs.org> or use `nvm-windows`.
+
+> After installing, reopen your terminal so `node` and `npm` are in PATH.
+
 1. **Fork & clone**
    ```bash
    gh repo fork ai-starter-app --clone
