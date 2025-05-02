@@ -1,19 +1,22 @@
-# AI Starter App
+# AI Starter App with PostgreSQL and Prisma
 
 Opinionated full‑stack skeleton meant to be **forked and cloned** so you (or your AI pair‑programmer) can start coding features immediately instead of scaffolding a project from scratch.
 
 ## Repository overview
-This monorepo ships a minimal “random fortune” demo to prove everything works end‑to‑end, but the real goal is to provide a ready‑to‑hack stack for rapid AI‑assisted development:
+This monorepo ships a minimal "random fortune" demo to prove everything works end‑to‑end, but the real goal is to provide a ready‑to‑hack stack for rapid AI‑assisted development:
 
-• Backend – an Express + Knex + SQLite API that returns one random fortune
+• Backend – an Express + Prisma + PostgreSQL API that returns one random fortune
 • Front‑end – a React/Vite SPA that fetches and shows it
+• Docker – containerized development environment for PostgreSQL and API
 
 ## Folder layout
 
 ```text
 / (root)
-├─ server/     → Express + Knex backend
+├─ server/     → Express + Prisma backend
+│  ├─ prisma/  → Prisma schema and seeds
 ├─ client/     → React + Vite front‑end
+├─ docker-compose.yml → Container configuration
 └─ README.md
 ```
 
@@ -21,17 +24,18 @@ This monorepo ships a minimal “random fortune” demo to prove everything work
 
 **Key files**
 - `index.ts` – Express entry point (exposes `GET /api/fortunes/random`)
-- `db.ts` – Knex instance configured via `knexfile.js`
-- `migrations/20250423_create_fortunes_table.js` – creates the `fortunes` table
-- `seeds/01_fortunes_seed.js` – inserts 20 sample fortunes
+- `db.ts` – Prisma client instance and data access functions
+- `prisma/schema.prisma` – Prisma schema defining the database models
+- `prisma/seed.ts` – Seeds the database with sample fortunes
+- `Dockerfile` – Container configuration for the API
 
 **npm scripts**
 
 | Script | Purpose |
 | ------ | ------- |
-| `npm run dev` | Runs latest migration & seed, then hot‑reloads via `ts-node-dev` |
-| `npm run migrate` | `knex migrate:latest` |
-| `npm run seed` | `knex seed:run` |
+| `npm run dev` | Runs Prisma migrations, seeds the database, then hot‑reloads via `ts-node-dev` |
+| `npm run migrate` | `prisma migrate deploy` |
+| `npm run seed` | `prisma db seed` |
 | `npm run build` | Type‑checks & emits JS to `server/dist/` |
 
 Server listens on **http://localhost:4000** (`PORT` env var overrides).
@@ -41,7 +45,7 @@ Server listens on **http://localhost:4000** (`PORT` env var overrides).
 **Key files**
 - `App.tsx` – React component that shows the fortune
 - `main.tsx` – App bootstrap
-- `vite.config.ts` – Dev server on port 3000 (proxy `/api` → `http://localhost:4000`)
+- `vite.config.ts` – Dev server on port 3000 (proxy `/api` → `http://localhost:4000`)
 
 **npm scripts**
 
@@ -53,32 +57,45 @@ Server listens on **http://localhost:4000** (`PORT` env var overrides).
 
 The SPA calls `/api/fortunes/random`; Vite proxies the request to the Express server during development.
 
+### docker-compose.yml
+
+Defines two services:
+- `db` - PostgreSQL database running on port 5433
+- `api` - Express API running on port 4001
+
 ### root/
 
 Contains only a `package.json` that orchestrates both apps.
 
 | Script | Runs |
 | ------ | ---- |
-| `npm run dev` | Starts server & client in parallel |
-| `npm run server` | `cd server && npm run dev` |
+| `npm run dev` | Starts Docker services (API + PostgreSQL) and client in parallel |
+| `npm run dev:client` | `cd client && npm run dev` |
+| `npm run dev:api` | `docker compose up --build` |
+| `npm run server` | `cd server && npm run dev` (runs directly on host, not in Docker) |
 | `npm run client` | `cd client && npm run dev` |
-| `npm run bootstrap` | Installs dependencies in root, server and client |
+| `npm run bootstrap` | Installs dependencies and generates Prisma client |
+| `npm run prisma:generate` | Generates Prisma client |
 
 ## Why this repo?
-* **Curated dependencies** – Express, Knex, React, Vite, TypeScript, ESLint & Prettier all pre‑configured.  
+* **Curated dependencies** – Express, Prisma, React, Vite, TypeScript, ESLint & Prettier all pre‑configured.  
 * **Batteries included** – hot reload, DB migrations, seeding, proxying, and split dev servers work out of the box.  
+* **Docker ready** – PostgreSQL and API run in Docker containers for consistent development.
 * **AI friendly** – consistent code style and simple architecture make it easy for tools like GitHub Copilot or ChatGPT to suggest accurate changes.  
 * **Zero scaffolding** – fork ➜ clone ➜ `npm run dev` ➜ start prompting.
 
 ## Getting started
 
 ### Prerequisites
-To run the stack you only need **Node.js 20 LTS** (npm is bundled).
+To run the stack you need:
+- **Node.js 20 LTS** (npm is bundled)
+- **Docker** (Desktop or Engine)
 
 ```bash
-# check your version
+# check your versions
 node -v   # → v20.x
 npm -v    # → 10.x
+docker --version # → Docker version 24.x
 ```
 
 If you need to install or upgrade Node.js:
@@ -95,29 +112,32 @@ If you need to install or upgrade Node.js:
   brew install node@20
   ```
 
-- **Windows** – download the 20 LTS installer from <https://nodejs.org> or use `nvm-windows`.
+- **Windows** – download the 20 LTS installer from <https://nodejs.org> or use `nvm-windows`.
 
-> After installing, reopen your terminal so `node` and `npm` are in PATH.
+For Docker, download and install Docker Desktop from https://www.docker.com/products/docker-desktop/
+
+> After installing, reopen your terminal so `node`, `npm`, and `docker` are in PATH.
 
 1. **Fork & clone**
    ```bash
-   gh repo create your-new-repo --template jflam/ai-app-starter --private --clone
+   gh repo create your-new-repo --template jflam/ai-app-starter-postgres --private --clone
    cd your-new-repo
    ```
 
 2. **Install dependencies**
 
-   **Option A (one‑liner)**  
+   **Option A (one‑liner)**  
    ```bash
    npm run bootstrap
    ```
 
-   **Option B (manual)**  
+   **Option B (manual)**  
    ```bash
    npm install          # root
    cd server && npm install
    cd ../client && npm install
    cd ..
+   cd server && npx prisma generate
    ```
 
 3. **Run the dev stack**
@@ -127,44 +147,59 @@ If you need to install or upgrade Node.js:
    ```
 
    • React/Vite SPA on **http://localhost:3000**  
-   • Express/Knex API on **http://localhost:4000**
+   • Express/Prisma API on **http://localhost:4001** (in Docker)
+   • PostgreSQL on **localhost:5433** (in Docker)
 
-### Understanding the logs
+### Understanding the architecture
 
-The root `npm run dev` script is powered by **concurrently**.  
-It launches two child processes and prefixes every log line so you can
-distinguish their origins:
+The application is composed of three main parts:
 
-| Prefix  | Color | Source                       |
-| ------- | ----- | ---------------------------- |
-| `SERVER`| blue  | Express / Knex backend       |
-| `CLIENT`| green | React / Vite front‑end       |
+1. **PostgreSQL Database** - Runs in a Docker container, accessible on port 5433.
+2. **Express API** - Also runs in a Docker container, exposing port 4001, and connecting to the PostgreSQL container.
+3. **React Frontend** - Runs directly on the host, connecting to the API container.
 
-Example output:
+When you run `npm run dev`, the following happens:
+- Docker Compose starts both the PostgreSQL container and the API container
+- The API container applies Prisma migrations and seeds the database
+- The React dev server starts on your host machine
 
+### Testing the API
+
+```bash
+curl http://localhost:4001/api/fortunes/random
 ```
-SERVER  🪄 Fortune API listening at http://localhost:4000
-CLIENT  VITE v5.0.0  ready in 300 ms  ➜  http://localhost:3000
+
+Returns: `{ "id": 7, "text": "Your persistence will pay off soon.", "created": "2025-05-02T17:34:42.839Z" }`
+
+### Prisma commands
+
+To interact with the database using Prisma:
+
+```bash
+# Generate Prisma client after schema changes
+cd server && npx prisma generate
+
+# Run migrations
+cd server && npx prisma migrate dev --name your_migration_name
+
+# Seed the database
+cd server && npx prisma db seed
+
+# Open Prisma Studio (web UI for database)
+cd server && npx prisma studio
 ```
-
-   The first boot automatically:
-   * runs the latest migration,
-   * seeds the SQLite DB with sample fortunes,
-   * hot‑reloads on TypeScript changes.
-
-4. **Verify the demo endpoint**
-
-   ```bash
-   curl http://localhost:4000/api/fortunes/random
-   ```
-
-   Returns: `{ "id": 7, "text": "Your shoes will make you happy today." }`
-
-5. **Start prompting your AI assistant** – the stack is live; add routes, components, or tests right away.
 
 ## Building for production
 
 ### 1. Compile the backend (server)
+
+The backend is containerized and can be built with:
+
+```bash
+docker compose build api
+```
+
+Or running directly:
 
 ```bash
 cd server
@@ -196,18 +231,47 @@ npm run preview    # opens http://localhost:4173
 
 ```bash
 npm run bootstrap                     # ensure all deps
-(cd server && npm run build) \
+docker compose build api \
   && (cd client && npm run build)
 ```
 
 ## Environment variables
-Only the server respects PORT (default 4000). Add more as your app grows.
+
+- `PORT` - API port (default 4000 inside the container)
+- `DATABASE_URL` - PostgreSQL connection string
+
+## Docker Compose configuration
+
+The `docker-compose.yml` defines:
+
+- `db` service - PostgreSQL 16 Alpine with credentials in the compose file
+- `api` service - Node.js API with Prisma connecting to the database
+
+To run only the database:
+
+```bash
+docker compose up db -d
+```
+
+To rebuild and run the API:
+
+```bash
+docker compose up api --build
+```
+
+To run everything:
+
+```bash
+docker compose up
+```
 
 ## TL;DR
-1. Fork this repo (`gh repo fork ai-starter-app`) and clone it locally.  
-2. `npm install` in **root**, **server**, and **client**.  
-3. `npm run dev` in root  
+1. Fork this repo and clone it locally.  
+2. Ensure Docker is running.
+3. `npm run bootstrap` to install all dependencies.
+4. `npm run dev` in root  
    * SPA: http://localhost:3000  
-   * API: http://localhost:4000  
-4. Start chatting with your AI – all dependencies are already wired together.  
-5. Example endpoint: `GET /api/fortunes/random` returns `{ id, text }`.
+   * API: http://localhost:4001 (Docker)
+   * PostgreSQL: localhost:5433 (Docker)
+5. Start chatting with your AI – all dependencies are already wired together.  
+6. Example endpoint: `GET /api/fortunes/random` returns `{ id, text, created }`.
