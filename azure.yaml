@@ -4,17 +4,17 @@ infra:
   path: ./infra
 services:
   api:
-    project: ./server
+    project: /Users/jflam/src/ai-app-starter-postgres/server
     language: js
     host: containerapp
     docker:
-      path: ./server/Dockerfile
-      context: ./server
+      path: /Users/jflam/src/ai-app-starter-postgres/server/Dockerfile
+      context: /Users/jflam/src/ai-app-starter-postgres/server
     environmentVariables:
       - PORT=4000
 
   web:
-    project: ./client
+    project: /Users/jflam/src/ai-app-starter-postgres/client
     language: js
     host: staticwebapp
     dist: dist

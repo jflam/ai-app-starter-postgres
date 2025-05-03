@@ -250,13 +250,13 @@ The `docker-compose.yml` defines:
 To run only the database:
 
 ```bash
-docker compose up db -d
+docker compose up -d db
 ```
 
 To rebuild and run the API:
 
 ```bash
-docker compose up api --build
+docker compose up --build api
 ```
 
 To run everything:
@@ -297,7 +297,7 @@ az login
 2. Initialize Azure Developer CLI environment:
 
 ```bash
-azd init --template "" --name ai-starter --location westus3
+azd init --template "" --environment ai-starter --location westus3
 ```
 
 3. Create an `.azure` folder with Azure configuration:
@@ -324,222 +324,27 @@ azd env set POSTGRES_ADMIN_PASSWORD "$(openssl rand -base64 16)"
 azd env set POSTGRES_DB ai_app
 ```
 
-### Step 2: Set up infrastructure as code
+Note: Do not use reserved usernames like 'admin', 'root', 'administrator', etc. for POSTGRES_ADMIN_USER.
 
-1. Create an `infra` directory:
+### Step 2: Review existing infrastructure as code
 
-```bash
-mkdir -p infra
-```
+The repository already contains the necessary infrastructure as code files:
 
-2. Create `infra/main.bicep`:
+1. **`infra/main.bicep`** - This Bicep template defines all Azure resources:
+   - Azure Container Registry (ACR) for storing Docker images
+   - Container Apps Environment and Container App for the API
+   - PostgreSQL Flexible Server with a B1ms (burstable) SKU 
+   - Static Web App for hosting the front-end
+   - Role assignments for secure access between services
+   - Secrets management for database connection
 
-```bicep
-// main.bicep
-param location string = resourceGroup().location
-param acrName string = '${uniqueString(resourceGroup().id)}acr'
-param postgresAdminUser string
-@secure()
-param postgresAdminPassword string
-param postgresDbName string = 'ai_app'
+2. **`azure.yaml`** - This configuration file tells Azure Developer CLI how to deploy:
+   - Service definitions for both the API and web front-end
+   - Docker build configuration for the API service
+   - Environment variable injection for communication between services
+   - Build hooks to configure the front-end with the correct API URL
 
-// Resource: Azure Container Registry (ACR)
-resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01' = {
-  name: acrName
-  location: location
-  sku: {
-    name: 'Basic'
-  }
-  properties: {
-    adminUserEnabled: false
-  }
-}
-
-// Resource: Container Apps Environment
-resource containerEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
-  name: '${resourceGroup().name}-env'
-  location: location
-  properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-    }
-  }
-}
-
-// Resource: PostgreSQL Flexible Server
-resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-03-01-preview' = {
-  name: uniqueString(resourceGroup().id, 'pg')
-  location: location
-  properties: {
-    version: '16'
-    administratorLogin: postgresAdminUser
-    administratorLoginPassword: postgresAdminPassword
-    storage: {
-      storageSizeGB: 32
-    }
-    createMode: 'Create'
-    availabilityZone: '1'
-    backup: {
-      backupRetentionDays: 7
-      geoRedundantBackup: 'Disabled'
-    }
-    network: {
-      publicNetworkAccess: 'Enabled'
-    }
-  }
-  sku: {
-    name: 'Standard_B1ms'
-    tier: 'Burstable'
-  }
-}
-
-// Resource: Initial Database
-resource pgDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-03-01-preview' = {
-  name: postgresDbName
-  parent: pgServer
-  properties: {
-    charset: 'UTF8'
-    collation: 'en_US.UTF8'
-  }
-}
-
-// Resource: Firewall rule to allow Azure services
-resource pgAllowAzure 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2023-03-01-preview' = {
-  name: 'AllowAllAzureServices'
-  parent: pgServer
-  properties: {
-    startIpAddress: '0.0.0.0'
-    endIpAddress: '0.0.0.0'
-  }
-}
-
-// Resource: API Container App
-resource apiContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
-  name: '${azdEnvironment().environmentName}-api'
-  location: location
-  properties: {
-    managedEnvironmentId: containerEnv.id
-    configuration: {
-      ingress: {
-        external: true
-        targetPort: 4000
-        allowInsecure: false
-        corsPolicy: {
-          allowedOrigins: ['*']
-        }
-      }
-      registries: [
-        {
-          server: acr.properties.loginServer
-          identity: 'system'
-        }
-      ]
-      secrets: [
-        {
-          name: 'DATABASE_URL'
-          value: 'postgres://${postgresAdminUser}@${pgServer.name}.postgres.database.azure.com:5432/${postgresDbName}?sslmode=require&password=${postgresAdminPassword}'
-        }
-      ]
-    }
-    identity: {
-      type: 'SystemAssigned'
-    }
-    template: {
-      containers: [
-        {
-          name: 'api'
-          image: '${acr.properties.loginServer}/api:latest'
-          resources: {
-            cpu: 0.5
-            memory: '1.0Gi'
-          }
-          env: [
-            {
-              name: 'DATABASE_URL'
-              secretRef: 'DATABASE_URL'
-            },
-            {
-              name: 'PORT'
-              value: '4000'
-            }
-          ]
-        }
-      ]
-      scale: { minReplicas: 1, maxReplicas: 1 }
-    }
-  }
-}
-
-// Resource: Role Assignment for ACR Pull
-resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, apiContainerApp.name, 'acrpull')
-  scope: acr
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
-    principalId: apiContainerApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Resource: Static Web App
-resource staticWebApp 'Microsoft.Web/staticSites@2022-03-01' = {
-  name: '${azdEnvironment().environmentName}-web'
-  location: location
-  sku: {
-    name: 'Free'
-    tier: 'Free'
-  }
-  properties: {
-    buildProperties: {
-      skipGithubActionWorkflowGeneration: true
-    }
-  }
-}
-
-// Outputs
-output API_URL string = 'https://${apiContainerApp.properties.configuration.ingress.fqdn}'
-output STATIC_WEB_APP_URL string = 'https://${staticWebApp.properties.defaultHostname}'
-```
-
-3. Create `azure.yaml` for Azure Developer CLI:
-
-```yaml
-# azure.yaml
-name: ai-starter-postgres
-services:
-  api:
-    project: ./server
-    language: js
-    host: containerapp
-    docker:
-      path: ./server/Dockerfile
-      context: ./server
-    environmentVariables:
-      - PORT=4000
-
-  web:
-    project: ./client
-    language: js
-    host: staticwebapp
-    dist: dist
-    hooks:
-      prepackage:
-        windows:
-          shell: pwsh
-          run: |
-            echo "VITE_API_URL=\"$Env:API_URL\"" > .env.local
-        posix:
-          shell: sh
-          run: |
-            echo "VITE_API_URL=\"$API_URL\"" > .env.local
-      postdeploy:
-        windows:
-          shell: pwsh
-          run: rm .env.local
-        posix:
-          shell: sh
-          run: rm .env.local
-```
+These files follow the infrastructure as code best practices outlined in the research document and work together to provide a streamlined deployment experience.
 
 ### Step 3: Deploy to Azure
 
@@ -558,7 +363,7 @@ This will:
 2. After deployment completes, get the endpoints:
 
 ```bash
-azd show-endpoints
+azd show
 ```
 
 You should see two endpoints:

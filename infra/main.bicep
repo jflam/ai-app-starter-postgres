@@ -7,7 +7,7 @@ param postgresAdminPassword string
 param postgresDbName string = 'ai_app'
 
 // Resource: Azure Container Registry (ACR)
-resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01' = {
+resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
   location: location
   sku: {
@@ -18,6 +18,21 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01' = {
   }
 }
 
+// Resource: Log Analytics workspace
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+  name: 'log-${uniqueString(resourceGroup().id)}'
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+    features: {
+      enableLogAccessUsingOnlyResourcePermissions: true
+    }
+  }
+}
+
 // Resource: Container Apps Environment
 resource containerEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
   name: '${resourceGroup().name}-env'
@@ -25,6 +40,10 @@ resource containerEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
   properties: {
     appLogsConfiguration: {
       destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalyticsWorkspace.properties.customerId
+        sharedKey: logAnalyticsWorkspace.listKeys().primarySharedKey
+      }
     }
   }
 }
@@ -35,7 +54,7 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-03-01-preview'
   location: location
   properties: {
     version: '16'
-    administratorLogin: postgresAdminUser
+    administratorLogin: 'postgresql_user'
     administratorLoginPassword: postgresAdminPassword
     storage: {
       storageSizeGB: 32
@@ -45,9 +64,6 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-03-01-preview'
     backup: {
       backupRetentionDays: 7
       geoRedundantBackup: 'Disabled'
-    }
-    network: {
-      publicNetworkAccess: 'Enabled'
     }
   }
   sku: {
@@ -78,8 +94,11 @@ resource pgAllowAzure 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2
 
 // Resource: API Container App
 resource apiContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
-  name: '${azdEnvironment().environmentName}-api'
+  name: 'ai-starter-api'
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     managedEnvironmentId: containerEnv.id
     configuration: {
@@ -87,6 +106,7 @@ resource apiContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
         external: true
         targetPort: 4000
         allowInsecure: false
+        transport: 'auto'
         corsPolicy: {
           allowedOrigins: ['*']
         }
@@ -99,13 +119,10 @@ resource apiContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
       ]
       secrets: [
         {
-          name: 'DATABASE_URL'
-          value: 'postgres://${postgresAdminUser}:${postgresAdminPassword}@${pgServer.name}.postgres.database.azure.com:5432/${postgresDbName}?sslmode=require'
+          name: 'database-url'
+          value: 'postgres://postgresql_user:${postgresAdminPassword}@${pgServer.name}.postgres.database.azure.com:5432/${postgresDbName}?sslmode=require'
         }
       ]
-    }
-    identity: {
-      type: 'SystemAssigned'
     }
     template: {
       containers: [
@@ -113,14 +130,14 @@ resource apiContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
           name: 'api'
           image: '${acr.properties.loginServer}/api:latest'
           resources: {
-            cpu: 0.5
-            memory: '1.0Gi'
+            cpu: json('0.5')
+            memory: '1Gi'
           }
           env: [
             {
               name: 'DATABASE_URL'
-              secretRef: 'DATABASE_URL'
-            },
+              secretRef: 'database-url'
+            }
             {
               name: 'PORT'
               value: '4000'
@@ -128,7 +145,10 @@ resource apiContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
           ]
         }
       ]
-      scale: { minReplicas: 1, maxReplicas: 1 }
+      scale: {
+        minReplicas: 1
+        maxReplicas: 1
+      }
     }
   }
 }
@@ -146,7 +166,7 @@ resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 
 // Resource: Static Web App
 resource staticWebApp 'Microsoft.Web/staticSites@2022-03-01' = {
-  name: '${azdEnvironment().environmentName}-web'
+  name: 'ai-starter-web'
   location: location
   sku: {
     name: 'Free'
@@ -160,5 +180,5 @@ resource staticWebApp 'Microsoft.Web/staticSites@2022-03-01' = {
 }
 
 // Outputs
-output API_URL string = 'https://${apiContainerApp.properties.configuration.ingress.fqdn}'
-output STATIC_WEB_APP_URL string = 'https://${staticWebApp.properties.defaultHostname}'
+output API_URL string = apiContainerApp.properties.configuration.ingress.fqdn
+output STATIC_WEB_APP_URL string = staticWebApp.properties.defaultHostname
