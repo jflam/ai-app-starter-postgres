@@ -67,7 +67,7 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-03-01-preview'
     }
   }
   sku: {
-    name: 'Standard_B1ms'
+    name: 'Standard_B2s'
     tier: 'Burstable'
   }
 }

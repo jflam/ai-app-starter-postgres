@@ -2,6 +2,15 @@
 name: ai-starter-postgres
 infra:
   path: ./infra
+  hooks:
+    pre-provision:
+      posix:
+        shell: sh
+        run: ./scripts/pre_provision.sh
+      windows:
+        shell: pwsh
+        run: ./scripts/pre_provision.sh
+
 services:
   api:
     project: /Users/jflam/src/ai-app-starter-postgres/server
