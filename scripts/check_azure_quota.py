@@ -10,6 +10,7 @@ import asyncio
 import aiohttp
 from rich.console import Console
 from rich.table import Table
+from rich.prompt import Prompt
 from rich import print as rprint
 
 app = FastAPI()
@@ -199,6 +200,26 @@ def display_quota_results(quotas: List[RegionQuota]):
     
     console.print(table)
 
+def set_deploy_region(region: str):
+    """Set the deployment region in the current shell"""
+    # Create a script that sets the environment variable
+    script_content = f"""#!/bin/bash
+export AZURE_DEPLOY_REGION="{region}"
+echo "AZURE_DEPLOY_REGION={region}"
+"""
+    
+    # Write the script to a temporary file in the current directory
+    with open("set_region.sh", "w") as f:
+        f.write(script_content)
+    
+    # Make it executable
+    import subprocess
+    subprocess.run(["chmod", "+x", "set_region.sh"])
+    
+    # Print instructions
+    console.print("\n[yellow]To set the deployment region, run:[/yellow]")
+    console.print("[green]source ./set_region.sh[/green]")
+
 @app.get("/check-quota")
 async def check_quota():
     """API endpoint to check Azure quotas"""
@@ -240,8 +261,20 @@ def main():
         sys.exit(1)
     
     console.print("\n[green]Regions available for deployment:[/green]")
-    for region in available_regions:
-        console.print(f"• {region}")
+    for i, region in enumerate(available_regions, 1):
+        console.print(f"{i}. {region}")
+    
+    # Prompt user to select a region
+    choice = Prompt.ask(
+        "\nSelect a region number",
+        choices=[str(i) for i in range(1, len(available_regions) + 1)]
+    )
+    
+    selected_region = available_regions[int(choice) - 1]
+    console.print(f"\n[green]Selected region: {selected_region}[/green]")
+    
+    # Set the deployment region
+    set_deploy_region(selected_region)
 
 if __name__ == "__main__":
     if "--server" in sys.argv:

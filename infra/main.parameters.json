@@ -2,11 +2,45 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
+    "location": {
+      "value": "eastus2"
+    },
     "postgresAdminUser": {
-      "value": "postgres_admin"
+      "value": "postgresql_user"
     },
     "postgresAdminPassword": {
-      "value": "YourStrongPassword123!"
+      "reference": {
+        "keyVault": {
+          "id": "[parameters('keyVaultId')]"
+        },
+        "secretName": "postgresAdminPassword"
+      }
+    },
+    "postgresDbName": {
+      "value": "ai_app"
+    },
+    "postgresSku": {
+      "value": {
+        "name": "Standard_B2s",
+        "tier": "Burstable"
+      }
+    },
+    "postgresStorage": {
+      "value": {
+        "storageSizeGB": 32
+      }
+    },
+    "containerAppsCpu": {
+      "value": 0.5
+    },
+    "containerAppsMemory": {
+      "value": "1Gi"
+    },
+    "tags": {
+      "value": {
+        "environment": "production",
+        "project": "ai-starter-postgres"
+      }
     }
   }
 }

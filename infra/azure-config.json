@@ -39,9 +39,7 @@
   },
   "allowed_regions": [
     "westus2",
-    "westus",
     "centralus",
-    "eastus",
     "eastus2"
   ],
   "deployment": {

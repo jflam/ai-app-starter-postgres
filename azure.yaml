@@ -27,6 +27,7 @@ services:
     language: js
     host: staticwebapp
     dist: dist
+    location: ${AZURE_DEPLOY_REGION}  # Add this line to explicitly set the region
     hooks:
       prepackage:
         windows:

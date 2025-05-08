@@ -224,25 +224,30 @@ Example configuration:
 
 ### Deployment Steps
 
-1. **Check Azure Quotas**
+1. **Check Azure Quotas and Select Region**
 
-   Before deploying, check if your subscription has sufficient quota in your desired regions:
+   The quota check script will check available capacity and help you select a deployment region:
 
    ```bash
+   # First, set your subscription ID
    export AZURE_SUBSCRIPTION_ID="your-subscription-id"
    
-   # Run the quota check script using uv
+   # Run the quota check script and select a region
    uv run scripts/check_azure_quota.py
+   
+   # IMPORTANT: Source the region script in the same terminal
+   source ./set_region.sh
    ```
 
-   This will show available quotas across all configured regions and indicate which regions have sufficient capacity for deployment.
-
-   You can also run it as a web service:
-   ```bash
-   uv run scripts/check_azure_quota.py --server
-   ```
+   This will:
+   - Check quotas across all configured regions
+   - Display available capacity
+   - Let you select a region with sufficient quota
+   - Create a script to set the deployment region
 
 2. **Configure Azure**
+
+   In the same terminal session:
 
    ```bash
    # Login to Azure
@@ -264,12 +269,13 @@ Example configuration:
 4. **Deploy**
 
    ```bash
+   # Deploy using the selected region
    azd up
    ```
 
    The deployment process will:
    - Generate Bicep parameters from azure-config.json
-   - Create or update Azure resources
+   - Create or update Azure resources in the selected region
    - Build and deploy the application
    - Configure all necessary connections
 

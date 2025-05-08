@@ -1,10 +1,10 @@
 // main.bicep
-param location string = resourceGroup().location
-param acrName string = '${uniqueString(resourceGroup().id)}acr'
+param location string
 param postgresAdminUser string
 @secure()
 param postgresAdminPassword string
 param postgresDbName string = 'ai_app'
+param acrName string = '${uniqueString(resourceGroup().id)}acr'
 
 // Resource: Azure Container Registry (ACR)
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {

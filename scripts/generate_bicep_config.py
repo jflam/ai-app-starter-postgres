@@ -1,8 +1,27 @@
 #!/usr/bin/env python3
 import json
 import sys
+import argparse
 from typing import Dict, Any
 from pathlib import Path
+
+# Define supported regions for each service type
+SERVICE_REGIONS = {
+    "Microsoft.Web/staticSites": [
+        "westus2",
+        "centralus",
+        "eastus2",
+        "westeurope",
+        "eastasia"
+    ],
+    # Add other service types as needed
+}
+
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(description="Generate Bicep configuration")
+    parser.add_argument("--region", required=True, help="Target Azure region for deployment")
+    return parser.parse_args()
 
 def load_config() -> Dict[str, Any]:
     """Load the azure-config.json file"""
@@ -12,16 +31,38 @@ def load_config() -> Dict[str, Any]:
         sys.exit(1)
     
     with open(config_path) as f:
-        return json.load(f)
+        config = json.load(f)
+    return config
 
-def generate_bicep_params(config: Dict[str, Any]) -> Dict[str, Any]:
+def validate_region(config: Dict[str, Any], region: str):
+    """Validate that the specified region is allowed and supported by all services"""
+    # First check if it's in our allowed regions
+    if region not in config["allowed_regions"]:
+        print(f"Error: Region '{region}' is not in the allowed regions list:")
+        print("Allowed regions:", ", ".join(config["allowed_regions"]))
+        sys.exit(1)
+    
+    # Then check each service's supported regions
+    unsupported_services = []
+    for service_type, supported_regions in SERVICE_REGIONS.items():
+        if region not in supported_regions:
+            unsupported_services.append(service_type)
+    
+    if unsupported_services:
+        print(f"\nError: Region '{region}' is not supported by all required services:")
+        for service in unsupported_services:
+            print(f"\n{service}:")
+            print("Supported regions:", ", ".join(SERVICE_REGIONS[service]))
+        sys.exit(1)
+
+def generate_bicep_params(config: Dict[str, Any], region: str) -> Dict[str, Any]:
     """Generate Bicep parameters from config"""
     params = {
         "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
         "contentVersion": "1.0.0.0",
         "parameters": {
             "location": {
-                "value": "[resourceGroup().location]"
+                "value": region
             },
             "postgresAdminUser": {
                 "value": config["database"]["admin_user"]
@@ -59,7 +100,7 @@ def generate_bicep_params(config: Dict[str, Any]) -> Dict[str, Any]:
     }
     return params
 
-def update_bicep_template(config: Dict[str, Any]):
+def update_bicep_template(config: Dict[str, Any], region: str):
     """Update the Bicep template with configuration-driven changes"""
     bicep_path = Path("infra/main.bicep")
     if not bicep_path.exists():
@@ -72,7 +113,7 @@ def update_bicep_template(config: Dict[str, Any]):
     
     # Update parameters section
     params_section = """
-param location string = resourceGroup().location
+param location string
 param postgresAdminUser string
 @secure()
 param postgresAdminPassword string
@@ -131,17 +172,21 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-03-01-preview'
 
 def main():
     """Main entry point"""
+    args = parse_args()
     config = load_config()
     
+    # Validate the target region
+    validate_region(config, args.region)
+    
     # Generate parameters file
-    params = generate_bicep_params(config)
+    params = generate_bicep_params(config, args.region)
     with open("infra/main.parameters.json", "w") as f:
         json.dump(params, f, indent=2)
     
     # Update Bicep template
-    update_bicep_template(config)
+    update_bicep_template(config, args.region)
     
-    print("Successfully updated Bicep configuration")
+    print(f"Successfully updated Bicep configuration for region: {args.region}")
 
 if __name__ == "__main__":
     main()
