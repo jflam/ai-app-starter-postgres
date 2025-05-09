@@ -1,47 +1,23 @@
-# azure.yaml
-name: ai-starter-postgres
-infra:
-  path: ./infra
-  hooks:
-    pre-provision:
-      posix:
-        shell: sh
-        run: ./scripts/pre_provision.sh
-      windows:
-        shell: pwsh
-        run: ./scripts/pre_provision.sh
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/alpha/azure.yaml.json
 
+name: ai-app-starter-postgres
+metadata:
+    template: azd-init@1.15.1
 services:
-  api:
-    project: /Users/jflam/src/ai-app-starter-postgres/server
-    language: js
-    host: containerapp
-    docker:
-      path: /Users/jflam/src/ai-app-starter-postgres/server/Dockerfile
-      context: /Users/jflam/src/ai-app-starter-postgres/server
-    environmentVariables:
-      - PORT=4000
-
-  web:
-    project: /Users/jflam/src/ai-app-starter-postgres/client
-    language: js
-    host: staticwebapp
-    dist: dist
-    location: ${AZURE_DEPLOY_REGION}  # Add this line to explicitly set the region
-    hooks:
-      prepackage:
-        windows:
-          shell: pwsh
-          run: |
-            echo "VITE_API_URL=\"$Env:API_URL\"" > .env.local
-        posix:
-          shell: sh
-          run: |
-            echo "VITE_API_URL=\"$API_URL\"" > .env.local
-      postdeploy:
-        windows:
-          shell: pwsh
-          run: rm .env.local
-        posix:
-          shell: sh
-          run: rm .env.local
+    client:
+        project: client
+        host: staticwebapp
+        language: js
+        dist: dist
+    server:
+        project: server
+        host: containerapp
+        language: ts
+resources:
+    client:
+        type: host.staticwebapp 
+    server:
+        type: host.containerapp
+        port: 4000
+    aistarterapppostgresdb:
+        type: db.postgres

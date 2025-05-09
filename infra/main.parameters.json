@@ -1,46 +1,21 @@
 {
-  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
-  "contentVersion": "1.0.0.0",
-  "parameters": {
-    "location": {
-      "value": "eastus2"
-    },
-    "postgresAdminUser": {
-      "value": "postgresql_user"
-    },
-    "postgresAdminPassword": {
-      "reference": {
-        "keyVault": {
-          "id": "[parameters('keyVaultId')]"
-        },
-        "secretName": "postgresAdminPassword"
-      }
-    },
-    "postgresDbName": {
-      "value": "ai_app"
-    },
-    "postgresSku": {
-      "value": {
-        "name": "Standard_B2s",
-        "tier": "Burstable"
-      }
-    },
-    "postgresStorage": {
-      "value": {
-        "storageSizeGB": 32
-      }
-    },
-    "containerAppsCpu": {
-      "value": 0.5
-    },
-    "containerAppsMemory": {
-      "value": "1Gi"
-    },
-    "tags": {
-      "value": {
-        "environment": "production",
-        "project": "ai-starter-postgres"
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "environmentName": {
+        "value": "${AZURE_ENV_NAME}"
+      },
+      "location": {
+        "value": "${AZURE_LOCATION}"
+      },
+      "postgresDatabasePassword": {
+        "value": "$(secretOrRandomPassword ${AZURE_KEY_VAULT_NAME} postgres-password)"
+      },
+      "serverExists": {
+        "value": "${SERVICE_SERVER_RESOURCE_EXISTS=false}"
+      },
+      "principalId": {
+        "value": "${AZURE_PRINCIPAL_ID}"
       }
     }
-  }
 }

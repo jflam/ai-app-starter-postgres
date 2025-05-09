@@ -8,89 +8,23 @@ This monorepo ships a minimal "random fortune" demo to prove everything works en
 • Backend – an Express + Prisma + PostgreSQL API that returns one random fortune
 • Front‑end – a React/Vite SPA that fetches and shows it
 • Docker – containerized development environment for PostgreSQL and API
+• Azure – deployment configuration for Azure Container Apps and Static Web Apps
 
-## Folder layout
+## Quick Start
+> One-liner productive setup.
 
-```text
-/ (root)
-├─ server/     → Express + Prisma backend
-│  ├─ prisma/  → Prisma schema and seeds
-├─ client/     → React + Vite front‑end
-├─ infra/      → Azure infrastructure as code
-│  ├─ main.bicep → Bicep template for Azure resources
-│  ├─ azure-config.json → Centralized Azure configuration
-├─ scripts/    → Deployment and utility scripts
-├─ docker-compose.yml → Container configuration
-└─ README.md
+```bash
+git clone https://github.com/<you>/ai-app-starter-postgres.git
+cd ai-app-starter-postgres
+npm run bootstrap    # install & generate Prisma client
+npm run dev          # DB + API (Docker) & React SPA (host)
 ```
 
-### server/ (Backend)
+• SPA → http://localhost:3000  
+• API → http://localhost:4001  
+• DB  → localhost:5433
 
-**Key files**
-- `index.ts` – Express entry point (exposes `GET /api/fortunes/random`)
-- `db.ts` – Prisma client instance and data access functions
-- `prisma/schema.prisma` – Prisma schema defining the database models
-- `prisma/seed.ts` – Seeds the database with sample fortunes
-- `Dockerfile` – Container configuration for the API
-
-**npm scripts**
-
-| Script | Purpose |
-| ------ | ------- |
-| `npm run dev` | Runs Prisma migrations, seeds the database, then hot‑reloads via `ts-node-dev` |
-| `npm run migrate` | `prisma migrate deploy` |
-| `npm run seed` | `prisma db seed` |
-| `npm run build` | Type‑checks & emits JS to `server/dist/` |
-
-Server listens on **http://localhost:4000** (`PORT` env var overrides).
-
-### client/ (Front‑end)
-
-**Key files**
-- `App.tsx` – React component that shows the fortune
-- `main.tsx` – App bootstrap
-- `vite.config.ts` – Dev server on port 3000 (proxy `/api` → `http://localhost:4000`)
-
-**npm scripts**
-
-| Script | Purpose |
-| ------ | ------- |
-| `npm run dev` | Launch Vite dev server with HMR |
-| `npm run build` | Production build to `client/dist/` |
-| `npm run preview` | Preview the build locally |
-
-The SPA calls `/api/fortunes/random`; Vite proxies the request to the Express server during development.
-
-### docker-compose.yml
-
-Defines two services:
-- `db` - PostgreSQL database running on port 5433
-- `api` - Express API running on port 4001
-
-### root/
-
-Contains only a `package.json` that orchestrates both apps.
-
-| Script | Runs |
-| ------ | ---- |
-| `npm run dev` | Starts Docker services (API + PostgreSQL) and client in parallel |
-| `npm run dev:client` | `cd client && npm run dev` |
-| `npm run dev:api` | `docker compose up --build` |
-| `npm run server` | `cd server && npm run dev` (runs directly on host, not in Docker) |
-| `npm run client` | `cd client && npm run dev` |
-| `npm run bootstrap` | Installs dependencies and generates Prisma client |
-| `npm run prisma:generate` | Generates Prisma client |
-
-## Why this repo?
-* **Curated dependencies** – Express, Prisma, React, Vite, TypeScript, ESLint & Prettier all pre‑configured.  
-* **Batteries included** – hot reload, DB migrations, seeding, proxying, and split dev servers work out of the box.  
-* **Docker ready** – PostgreSQL and API run in Docker containers for consistent development.
-* **AI friendly** – consistent code style and simple architecture make it easy for tools like GitHub Copilot or ChatGPT to suggest accurate changes.  
-* **Zero scaffolding** – fork ➜ clone ➜ `npm run dev` ➜ start prompting.
-
-## Getting started
-
-### Prerequisites
+## Prerequisites
 To run the stack you need:
 - **Node.js 20 LTS** (npm is bundled)
 - **Docker** (Desktop or Engine)
@@ -396,39 +330,183 @@ To run everything:
 docker compose up
 ```
 
-## TL;DR
-1. Fork this repo and clone it locally.  
-2. Ensure Docker is running.
-3. `npm run bootstrap` to install all dependencies.
-4. `npm run dev` in root  
-   * SPA: http://localhost:3000  
-   * API: http://localhost:4001 (Docker)
-   * PostgreSQL: localhost:5433 (Docker)
-5. Start chatting with your AI – all dependencies are already wired together.  
-6. Example endpoint: `GET /api/fortunes/random` returns `{ id, text, created }`.
-7. Deploy to Azure:
-   * Check quotas: `python3 scripts/check_azure_quota.py`
-   * Deploy: `azd up`
+## Deploy to Azure  
 
-## Development Tools
+This starter app comes pre-configured for deployment to Azure using the Azure Developer CLI (azd). The deployment architecture consists of:
 
-### Python Package Management
+- **Azure Container App** - Hosts the Express API backend
+- **Azure PostgreSQL Flexible Server** - Managed PostgreSQL database
+- **Azure Static Web App** - Hosts the React frontend
+- **Azure Container Registry** - Stores the Docker image for the API
 
-This project uses uv for Python package management. Some useful commands:
+### Prerequisites for Azure Deployment
+
+1. **Install Azure CLI and Azure Developer CLI (azd)**
+   ```bash
+   # Install Azure CLI
+   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash  # Linux
+   brew install azure-cli                                   # macOS
+   winget install -e --id Microsoft.AzureCLI               # Windows
+   
+   # Install Azure Developer CLI
+   curl -fsSL https://aka.ms/install-azd.sh | bash         # Linux/macOS
+   winget install -e --id Microsoft.Azd                    # Windows
+   ```
+
+2. **Login to Azure**
+   ```bash
+   az login
+   azd auth login
+   ```
+
+### Deploying the Application
+
+1. **Initialize the Azure environment**
+   ```bash
+   azd env new myenv
+   ```
+   Replace `myenv` with your preferred environment name (e.g., dev, staging, prod).
+
+2. **Set database password**
+   ```bash
+   azd env set POSTGRES_ADMIN_PASSWORD "<your-secure-password>"
+   ```
+   Make sure to use a strong password that meets Azure requirements (at least 8 characters with lowercase, uppercase, numbers, and symbols).
+
+3. **Provision resources and deploy the application**
+   ```bash
+   azd up
+   ```
+   This command provisions all Azure resources and deploys both the API and frontend. It may take several minutes to complete.
+
+4. **Verify the deployed application**
+   After successful deployment, you'll see URLs for both services:
+   - Frontend (Static Web App): `https://<random-name>.<hash>.azurestaticapps.net`
+   - Backend API (Container App): `https://server.<unique-id>.<region>.azurecontainerapps.io`
+
+### Environment Configuration
+
+#### Frontend Configuration
+
+The frontend application needs to know the URL of the backend API. There are two ways to configure this:
+
+1. **Runtime Configuration (Option 1) - Recommended**
+
+   Configure application settings in Azure Static Web Apps:
+   ```bash
+   az staticwebapp appsettings set \
+     --name <your-static-webapp-name> \
+     --resource-group <resource-group-name> \
+     --setting-names VITE_API_BASE_URL="https://server.<unique-id>.<region>.azurecontainerapps.io"
+   ```
+
+2. **Build-time Configuration (Option 2)**
+
+   Update the `.env.production` file before building:
+   ```
+   VITE_API_BASE_URL=https://server.<unique-id>.<region>.azurecontainerapps.io
+   ```
+
+#### Database Migrations
+
+Azure Container Apps automatically applies Prisma migrations during startup. If you need to run migrations manually:
 
 ```bash
-# Initialize a new Python project
-uv init
+# Get the connection string from Azure
+DATABASE_URL=$(az containerapp secret show \
+  --name server \
+  --resource-group <resource-group-name> \
+  --secret-name database-url \
+  --query value -o tsv)
 
-# Add packages
-uv add <package-name>
-
-# Run Python scripts in an isolated environment
-uv run <script.py>
-
-# Create a virtual environment
-uv venv
-
-# Install packages from requirements.txt
-uv pip install -r requirements.txt
+# Run migrations
+cd server
+npm run migrate
 ```
+
+### CI/CD Pipeline Setup
+
+You can set up a GitHub Actions workflow for continuous deployment:
+
+1. **Configure the GitHub Actions pipeline**
+   ```bash
+   azd pipeline config
+   ```
+   This command will:
+   - Create a service principal for GitHub
+   - Set up the necessary GitHub repository secrets
+   - Generate a workflow file in `.github/workflows/azure-dev.yml`
+
+2. **Push changes to trigger deployment**
+   After the pipeline is configured, any push to the main branch will trigger a deployment to your Azure environment.
+
+### Iterative Development
+
+For local development connected to Azure resources:
+
+1. **Get the Azure database connection string**
+   ```bash
+   az postgres flexible-server show-connection-string \
+     --server-name <postgres-server-name> \
+     --database-name <database-name> \
+     --admin-user <admin-username> \
+     --query connectionString
+   ```
+
+2. **Add your IP to the PostgreSQL firewall rules**
+   ```bash
+   az postgres flexible-server firewall-rule create \
+     --resource-group <resource-group-name> \
+     --name <postgres-server-name> \
+     --rule-name AllowMyIP \
+     --start-ip-address <your-ip-address> \
+     --end-ip-address <your-ip-address>
+   ```
+
+3. **Set environment variables for local development**
+   Create a `.env.local` file in the client directory:
+   ```
+   VITE_API_BASE_URL=http://localhost:4000
+   ```
+
+   Create a `.env` file in the server directory:
+   ```
+   DATABASE_URL=<azure-postgres-connection-string>
+   ```
+
+### Troubleshooting Azure Deployment
+
+If your deployment fails or the application isn't working properly:
+
+1. **Check Container App logs**
+   ```bash
+   az containerapp logs show \
+     --name server \
+     --resource-group <resource-group-name> \
+     --follow
+   ```
+
+2. **Check Static Web App deployment status**
+   ```bash
+   az staticwebapp show \
+     --name <static-webapp-name> \
+     --resource-group <resource-group-name>
+   ```
+
+3. **Common issues**:
+   - **CORS errors**: Ensure the Container App's CORS policy allows requests from the Static Web App domain
+   - **Database connection issues**: Check if the database URL secret is correctly set in the Container App
+   - **Environment variable configuration**: Verify that `VITE_API_BASE_URL` is correctly set in the Static Web App
+
+4. **Clean up resources**
+   If you need to remove all deployed resources:
+   ```bash
+   azd down
+   ```
+
+## Security Considerations
+
+- Environment variables prefixed with `VITE_` are embedded in the client-side code and visible to users
+- Only include non-sensitive information in client-side environment variables
+- Sensitive data like database credentials are securely stored as Container App secrets
+- The Static Web App's Content Security Policy (CSP) in `staticwebapp.config.json` restricts which domains can be connected to
