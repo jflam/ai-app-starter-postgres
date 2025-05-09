@@ -10,93 +10,21 @@ This monorepo ships a minimal "random fortune" demo to prove everything works en
 • Docker – containerized development environment for PostgreSQL and API
 • Azure – deployment configuration for Azure Container Apps and Static Web Apps
 
-## Folder layout
+## Quick Start
+> One-liner productive setup.
 
-```text
-/ (root)
-├─ server/     → Express + Prisma backend
-│  ├─ prisma/  → Prisma schema and seeds
-├─ client/     → React + Vite front‑end
-├─ docker-compose.yml → Container configuration
-├─ azure.yaml  → Azure deployment configuration
-├─ infra/      → Azure Bicep infrastructure templates
-└─ README.md
+```bash
+git clone https://github.com/<you>/ai-app-starter-postgres.git
+cd ai-app-starter-postgres
+npm run bootstrap    # install & generate Prisma client
+npm run dev          # DB + API (Docker) & React SPA (host)
 ```
 
-### server/ (Backend)
+• SPA → http://localhost:3000  
+• API → http://localhost:4001  
+• DB  → localhost:5433
 
-**Key files**
-- `index.ts` – Express entry point (exposes `GET /api/fortunes/random`)
-- `db.ts` – Prisma client instance and data access functions
-- `prisma/schema.prisma` – Prisma schema defining the database models
-- `prisma/seed.ts` – Seeds the database with sample fortunes
-- `Dockerfile` – Container configuration for the API
-
-**npm scripts**
-
-| Script | Purpose |
-| ------ | ------- |
-| `npm run dev` | Runs Prisma migrations, seeds the database, then hot‑reloads via `ts-node-dev` |
-| `npm run migrate` | `prisma migrate deploy` |
-| `npm run seed` | `prisma db seed` |
-| `npm run build` | Type‑checks & emits JS to `server/dist/` |
-
-Server listens on **http://localhost:4000** (`PORT` env var overrides).
-
-### client/ (Front‑end)
-
-**Key files**
-- `App.tsx` – React component that shows the fortune
-- `main.tsx` – App bootstrap
-- `vite.config.ts` – Dev server on port 3000 (proxy `/api` → `http://localhost:4000`)
-- `.env` – Environment variables including API URL for production
-
-**Environment Variables**
-
-| Variable | Purpose |
-| -------- | ------- |
-| `VITE_API_BASE_URL` | Base URL for API requests in production |
-
-**npm scripts**
-
-| Script | Purpose |
-| ------ | ------- |
-| `npm run dev` | Launch Vite dev server with HMR |
-| `npm run build` | Production build to `client/dist/` |
-| `npm run preview` | Preview the build locally |
-
-The SPA calls `/api/fortunes/random`; Vite proxies the request to the Express server during development. In production, it uses the `VITE_API_BASE_URL` environment variable to target the deployed API.
-
-### docker-compose.yml
-
-Defines two services:
-- `db` - PostgreSQL database running on port 5433
-- `api` - Express API running on port 4001
-
-### root/
-
-Contains only a `package.json` that orchestrates both apps.
-
-| Script | Runs |
-| ------ | ---- |
-| `npm run dev` | Starts Docker services (API + PostgreSQL) and client in parallel |
-| `npm run dev:client` | `cd client && npm run dev` |
-| `npm run dev:api` | `docker compose up --build` |
-| `npm run server` | `cd server && npm run dev` (runs directly on host, not in Docker) |
-| `npm run client` | `cd client && npm run dev` |
-| `npm run bootstrap` | Installs dependencies and generates Prisma client |
-| `npm run prisma:generate` | Generates Prisma client |
-
-## Why this repo?
-* **Curated dependencies** – Express, Prisma, React, Vite, TypeScript, ESLint & Prettier all pre‑configured.  
-* **Batteries included** – hot reload, DB migrations, seeding, proxying, and split dev servers work out of the box.  
-* **Docker ready** – PostgreSQL and API run in Docker containers for consistent development.
-* **AI friendly** – consistent code style and simple architecture make it easy for tools like GitHub Copilot or ChatGPT to suggest accurate changes.  
-* **Zero scaffolding** – fork ➜ clone ➜ `npm run dev` ➜ start prompting.
-
-## Getting started
-
-### Prerequisites
+## Prerequisites
 To run the stack you need:
 - **Node.js 20 LTS** (npm is bundled)
 - **Docker** (Desktop or Engine)
@@ -160,7 +88,7 @@ For Docker, download and install Docker Desktop from https://www.docker.com/prod
    • Express/Prisma API on **http://localhost:4001** (in Docker)
    • PostgreSQL on **localhost:5433** (in Docker)
 
-### Understanding the architecture
+## Understanding the architecture
 
 The application is composed of three main parts:
 
@@ -275,18 +203,7 @@ To run everything:
 docker compose up
 ```
 
-## TL;DR
-1. Fork this repo and clone it locally.  
-2. Ensure Docker is running.
-3. `npm run bootstrap` to install all dependencies.
-4. `npm run dev` in root  
-   * SPA: http://localhost:3000  
-   * API: http://localhost:4001 (Docker)
-   * PostgreSQL: localhost:5433 (Docker)
-5. Start chatting with your AI – all dependencies are already wired together.  
-6. Example endpoint: `GET /api/fortunes/random` returns `{ id, text, created }`.
-
-## Deploying to Azure
+## Deploy to Azure  <!-- was “Deploying to Azure” -->
 
 This starter app comes pre-configured for deployment to Azure using the Azure Developer CLI (azd). The deployment architecture consists of:
 
