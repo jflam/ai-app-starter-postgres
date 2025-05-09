@@ -5,6 +5,9 @@ interface Fortune {
   text: string;
 }
 
+// Get API base URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
 export default function App() {
   const [fortune, setFortune] = useState<Fortune | null>(null);
   const [loading, setLoading] = useState(false);
@@ -14,11 +17,12 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/fortunes/random');
+      const res = await fetch(`${API_BASE_URL}/api/fortunes/random`);
       if (!res.ok) throw new Error('Failed to load fortune');
       setFortune(await res.json());
     } catch (e: any) {
       setError(e.message);
+      console.error('Error fetching fortune:', e);
     } finally {
       setLoading(false);
     }

@@ -112,6 +112,9 @@ module serverFetchLatestImage './modules/fetch-container-image.bicep' = {
   }
 }
 
+// Construct the database URL with lowercase secret name
+var dbConnectionString = 'postgres://${postgresDatabaseUser}:${postgresDatabasePassword}@${postgresServer.outputs.name}.postgres.database.azure.com:5432/${postgresDatabaseName}?sslmode=require'
+
 module server 'br/public:avm/res/app/container-app:0.8.0' = {
   name: 'server'
   params: {
@@ -121,6 +124,10 @@ module server 'br/public:avm/res/app/container-app:0.8.0' = {
     scaleMaxReplicas: 10
     secrets: {
       secureList:  [
+        {
+          name: 'database-url' // lowercase name compliant with Container Apps restrictions
+          value: dbConnectionString
+        }
       ]
     }
     containers: [
@@ -143,6 +150,10 @@ module server 'br/public:avm/res/app/container-app:0.8.0' = {
           {
             name: 'PORT'
             value: '4000'
+          }
+          {
+            name: 'DATABASE_URL' // Keep uppercase env var name for Prisma
+            secretRef: 'database-url' // Reference the lowercase secret name
           }
         ]
       }

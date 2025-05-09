@@ -46,6 +46,13 @@ Server listens on **http://localhost:4000** (`PORT` env var overrides).
 - `App.tsx` – React component that shows the fortune
 - `main.tsx` – App bootstrap
 - `vite.config.ts` – Dev server on port 3000 (proxy `/api` → `http://localhost:4000`)
+- `.env` – Environment variables including API URL for production
+
+**Environment Variables**
+
+| Variable | Purpose |
+| -------- | ------- |
+| `VITE_API_BASE_URL` | Base URL for API requests in production |
 
 **npm scripts**
 
@@ -55,7 +62,7 @@ Server listens on **http://localhost:4000** (`PORT` env var overrides).
 | `npm run build` | Production build to `client/dist/` |
 | `npm run preview` | Preview the build locally |
 
-The SPA calls `/api/fortunes/random`; Vite proxies the request to the Express server during development.
+The SPA calls `/api/fortunes/random`; Vite proxies the request to the Express server during development. In production, it uses the `VITE_API_BASE_URL` environment variable to target the deployed API.
 
 ### docker-compose.yml
 
