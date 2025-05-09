@@ -8,6 +8,7 @@ This monorepo ships a minimal "random fortune" demo to prove everything works en
 • Backend – an Express + Prisma + PostgreSQL API that returns one random fortune
 • Front‑end – a React/Vite SPA that fetches and shows it
 • Docker – containerized development environment for PostgreSQL and API
+• Azure – deployment configuration for Azure Container Apps and Static Web Apps
 
 ## Folder layout
 
@@ -17,6 +18,8 @@ This monorepo ships a minimal "random fortune" demo to prove everything works en
 │  ├─ prisma/  → Prisma schema and seeds
 ├─ client/     → React + Vite front‑end
 ├─ docker-compose.yml → Container configuration
+├─ azure.yaml  → Azure deployment configuration
+├─ infra/      → Azure Bicep infrastructure templates
 └─ README.md
 ```
 
@@ -282,3 +285,184 @@ docker compose up
    * PostgreSQL: localhost:5433 (Docker)
 5. Start chatting with your AI – all dependencies are already wired together.  
 6. Example endpoint: `GET /api/fortunes/random` returns `{ id, text, created }`.
+
+## Deploying to Azure
+
+This starter app comes pre-configured for deployment to Azure using the Azure Developer CLI (azd). The deployment architecture consists of:
+
+- **Azure Container App** - Hosts the Express API backend
+- **Azure PostgreSQL Flexible Server** - Managed PostgreSQL database
+- **Azure Static Web App** - Hosts the React frontend
+- **Azure Container Registry** - Stores the Docker image for the API
+
+### Prerequisites for Azure Deployment
+
+1. **Install Azure CLI and Azure Developer CLI (azd)**
+   ```bash
+   # Install Azure CLI
+   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash  # Linux
+   brew install azure-cli                                   # macOS
+   winget install -e --id Microsoft.AzureCLI               # Windows
+   
+   # Install Azure Developer CLI
+   curl -fsSL https://aka.ms/install-azd.sh | bash         # Linux/macOS
+   winget install -e --id Microsoft.Azd                    # Windows
+   ```
+
+2. **Login to Azure**
+   ```bash
+   az login
+   azd auth login
+   ```
+
+### Deploying the Application
+
+1. **Initialize the Azure environment**
+   ```bash
+   azd env new myenv
+   ```
+   Replace `myenv` with your preferred environment name (e.g., dev, staging, prod).
+
+2. **Set database password**
+   ```bash
+   azd env set POSTGRES_ADMIN_PASSWORD "<your-secure-password>"
+   ```
+   Make sure to use a strong password that meets Azure requirements (at least 8 characters with lowercase, uppercase, numbers, and symbols).
+
+3. **Provision resources and deploy the application**
+   ```bash
+   azd up
+   ```
+   This command provisions all Azure resources and deploys both the API and frontend. It may take several minutes to complete.
+
+4. **Verify the deployed application**
+   After successful deployment, you'll see URLs for both services:
+   - Frontend (Static Web App): `https://<random-name>.<hash>.azurestaticapps.net`
+   - Backend API (Container App): `https://server.<unique-id>.<region>.azurecontainerapps.io`
+
+### Environment Configuration
+
+#### Frontend Configuration
+
+The frontend application needs to know the URL of the backend API. There are two ways to configure this:
+
+1. **Runtime Configuration (Option 1) - Recommended**
+
+   Configure application settings in Azure Static Web Apps:
+   ```bash
+   az staticwebapp appsettings set \
+     --name <your-static-webapp-name> \
+     --resource-group <resource-group-name> \
+     --setting-names VITE_API_BASE_URL="https://server.<unique-id>.<region>.azurecontainerapps.io"
+   ```
+
+2. **Build-time Configuration (Option 2)**
+
+   Update the `.env.production` file before building:
+   ```
+   VITE_API_BASE_URL=https://server.<unique-id>.<region>.azurecontainerapps.io
+   ```
+
+#### Database Migrations
+
+Azure Container Apps automatically applies Prisma migrations during startup. If you need to run migrations manually:
+
+```bash
+# Get the connection string from Azure
+DATABASE_URL=$(az containerapp secret show \
+  --name server \
+  --resource-group <resource-group-name> \
+  --secret-name database-url \
+  --query value -o tsv)
+
+# Run migrations
+cd server
+npm run migrate
+```
+
+### CI/CD Pipeline Setup
+
+You can set up a GitHub Actions workflow for continuous deployment:
+
+1. **Configure the GitHub Actions pipeline**
+   ```bash
+   azd pipeline config
+   ```
+   This command will:
+   - Create a service principal for GitHub
+   - Set up the necessary GitHub repository secrets
+   - Generate a workflow file in `.github/workflows/azure-dev.yml`
+
+2. **Push changes to trigger deployment**
+   After the pipeline is configured, any push to the main branch will trigger a deployment to your Azure environment.
+
+### Iterative Development
+
+For local development connected to Azure resources:
+
+1. **Get the Azure database connection string**
+   ```bash
+   az postgres flexible-server show-connection-string \
+     --server-name <postgres-server-name> \
+     --database-name <database-name> \
+     --admin-user <admin-username> \
+     --query connectionString
+   ```
+
+2. **Add your IP to the PostgreSQL firewall rules**
+   ```bash
+   az postgres flexible-server firewall-rule create \
+     --resource-group <resource-group-name> \
+     --name <postgres-server-name> \
+     --rule-name AllowMyIP \
+     --start-ip-address <your-ip-address> \
+     --end-ip-address <your-ip-address>
+   ```
+
+3. **Set environment variables for local development**
+   Create a `.env.local` file in the client directory:
+   ```
+   VITE_API_BASE_URL=http://localhost:4000
+   ```
+
+   Create a `.env` file in the server directory:
+   ```
+   DATABASE_URL=<azure-postgres-connection-string>
+   ```
+
+### Troubleshooting Azure Deployment
+
+If your deployment fails or the application isn't working properly:
+
+1. **Check Container App logs**
+   ```bash
+   az containerapp logs show \
+     --name server \
+     --resource-group <resource-group-name> \
+     --follow
+   ```
+
+2. **Check Static Web App deployment status**
+   ```bash
+   az staticwebapp show \
+     --name <static-webapp-name> \
+     --resource-group <resource-group-name>
+   ```
+
+3. **Common issues**:
+   - **CORS errors**: Ensure the Container App's CORS policy allows requests from the Static Web App domain
+   - **Database connection issues**: Check if the database URL secret is correctly set in the Container App
+   - **Environment variable configuration**: Verify that `VITE_API_BASE_URL` is correctly set in the Static Web App
+
+4. **Clean up resources**
+   If you need to remove all deployed resources:
+   ```bash
+   azd down
+   ```
+
+## Security Considerations
+
+- Environment variables prefixed with `VITE_` are embedded in the client-side code and visible to users
+- Only include non-sensitive information in client-side environment variables
+- Sensitive data like database credentials are securely stored as Container App secrets
+- The Static Web App's Content Security Policy (CSP) in `staticwebapp.config.json` restricts which domains can be connected to
