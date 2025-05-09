@@ -28,12 +28,17 @@ npm run dev          # DB + API (Docker) & React SPA (host)
 To run the stack you need:
 - **Node.js 20 LTS** (npm is bundled)
 - **Docker** (Desktop or Engine)
+- **Azure CLI** and **Azure Developer CLI (azd)** for deployment
+- **uv** - Modern Python package installer
 
 ```bash
 # check your versions
 node -v   # → v20.x
 npm -v    # → 10.x
 docker --version # → Docker version 24.x
+az --version # → azure-cli x.x.x
+azd version # → x.x.x
+uv --version # → x.x.x
 ```
 
 If you need to install or upgrade Node.js:
@@ -54,7 +59,19 @@ If you need to install or upgrade Node.js:
 
 For Docker, download and install Docker Desktop from https://www.docker.com/products/docker-desktop/
 
-> After installing, reopen your terminal so `node`, `npm`, and `docker` are in PATH.
+For Azure tools:
+```bash
+# Install Azure CLI
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash  # Linux
+brew install azure-cli  # macOS
+# Or download from https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
+
+# Install Azure Developer CLI
+curl -fsSL https://aka.ms/install-azd.sh | bash  # Linux/macOS
+# Or download from https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd
+```
+
+> After installing, reopen your terminal so all tools are in PATH.
 
 1. **Fork & clone**
    ```bash
@@ -88,44 +105,153 @@ For Docker, download and install Docker Desktop from https://www.docker.com/prod
    • Express/Prisma API on **http://localhost:4001** (in Docker)
    • PostgreSQL on **localhost:5433** (in Docker)
 
-## Understanding the architecture
+## Deploying to Azure
 
-The application is composed of three main parts:
+This project includes infrastructure as code and deployment automation for Azure. The deployment process is managed through the Azure Developer CLI (azd) with additional tooling to check quotas and manage configuration.
 
-1. **PostgreSQL Database** - Runs in a Docker container, accessible on port 5433.
-2. **Express API** - Also runs in a Docker container, exposing port 4001, and connecting to the PostgreSQL container.
-3. **React Frontend** - Runs directly on the host, connecting to the API container.
+### Python Dependencies Setup
 
-When you run `npm run dev`, the following happens:
-- Docker Compose starts both the PostgreSQL container and the API container
-- The API container applies Prisma migrations and seeds the database
-- The React dev server starts on your host machine
-
-### Testing the API
+The deployment tools require Python packages. Set these up using uv:
 
 ```bash
-curl http://localhost:4001/api/fortunes/random
+# Initialize Python project in the scripts directory
+cd scripts
+uv init
+
+# Install required packages
+uv add uvicorn fastapi pydantic rich aiohttp
+
+# Return to project root
+cd ..
 ```
 
-Returns: `{ "id": 7, "text": "Your persistence will pay off soon.", "created": "2025-05-02T17:34:42.839Z" }`
+### Configuration
 
-### Prisma commands
+All Azure resource configurations are centralized in `infra/azure-config.json`. This file defines:
 
-To interact with the database using Prisma:
+- Required services and their SKUs
+- Database configuration
+- Allowed deployment regions
+- Resource tags and naming conventions
 
-```bash
-# Generate Prisma client after schema changes
-cd server && npx prisma generate
-
-# Run migrations
-cd server && npx prisma migrate dev --name your_migration_name
-
-# Seed the database
-cd server && npx prisma db seed
-
-# Open Prisma Studio (web UI for database)
-cd server && npx prisma studio
+Example configuration:
+```json
+{
+  "required_services": {
+    "postgresql": {
+      "sku": {
+        "name": "Standard_B2s",
+        "tier": "Burstable"
+      },
+      "version": "16",
+      "storage_gb": 32
+    },
+    "container_apps": {
+      "resources": {
+        "cpu": 0.5,
+        "memory": "1Gi"
+      }
+    }
+  }
+}
 ```
+
+### Deployment Steps
+
+1. **Check Azure Quotas and Select Region**
+
+   The quota check script will check available capacity and help you select a deployment region:
+
+   ```bash
+   # First, set your subscription ID
+   export AZURE_SUBSCRIPTION_ID="your-subscription-id"
+   
+   # Run the quota check script and select a region
+   uv run scripts/check_azure_quota.py
+   
+   # IMPORTANT: Source the region script in the same terminal
+   source ./set_region.sh
+   ```
+
+   This will:
+   - Check quotas across all configured regions
+   - Display available capacity
+   - Let you select a region with sufficient quota
+   - Create a script to set the deployment region
+
+2. **Configure Azure**
+
+   In the same terminal session:
+
+   ```bash
+   # Login to Azure
+   az login
+   
+   # Set default subscription if needed
+   az account set --subscription <subscription-id>
+   
+   # Initialize Azure Developer CLI environment
+   azd init
+   ```
+
+3. **Set Required Environment Variables**
+
+   ```bash
+   azd env set POSTGRES_ADMIN_PASSWORD "your-secure-password"
+   ```
+
+4. **Deploy**
+
+   ```bash
+   # Deploy using the selected region
+   azd up
+   ```
+
+   The deployment process will:
+   - Generate Bicep parameters from azure-config.json
+   - Create or update Azure resources in the selected region
+   - Build and deploy the application
+   - Configure all necessary connections
+
+### Deployment Architecture
+
+The application deploys the following Azure resources:
+
+- **Azure Container Apps** - Hosts the API
+- **Azure Database for PostgreSQL Flexible Server** - Database
+- **Azure Container Registry** - Stores Docker images
+- **Azure Static Web Apps** - Hosts the front-end
+- **Log Analytics Workspace** - Centralized logging
+
+### Post-Deployment
+
+After deployment completes:
+
+1. **Run Database Migrations**
+   ```bash
+   cd server
+   DATABASE_URL="<connection-string>" npx prisma migrate deploy
+   ```
+
+2. **Seed the Database**
+   ```bash
+   DATABASE_URL="<connection-string>" npx prisma db seed
+   ```
+
+3. **Verify the Deployment**
+   ```bash
+   # Get the deployed endpoints
+   azd show
+   ```
+
+### Troubleshooting
+
+- If deployment fails due to quota issues, run the quota check script and either:
+  - Choose a different region with sufficient quota
+  - Request a quota increase through Azure Portal
+- For database connection issues, verify the firewall rules are correctly configured
+- Check Container Apps logs in Azure Portal for API issues
+- For Static Web App issues, verify the API URL environment variable is correctly set
 
 ## Building for production
 
@@ -177,6 +303,7 @@ docker compose build api \
 
 - `PORT` - API port (default 4000 inside the container)
 - `DATABASE_URL` - PostgreSQL connection string
+- `AZURE_SUBSCRIPTION_ID` - Required for quota checks and deployment
 
 ## Docker Compose configuration
 
@@ -188,13 +315,13 @@ The `docker-compose.yml` defines:
 To run only the database:
 
 ```bash
-docker compose up db -d
+docker compose up -d db
 ```
 
 To rebuild and run the API:
 
 ```bash
-docker compose up api --build
+docker compose up --build api
 ```
 
 To run everything:
@@ -203,7 +330,7 @@ To run everything:
 docker compose up
 ```
 
-## Deploy to Azure  <!-- was “Deploying to Azure” -->
+## Deploy to Azure  
 
 This starter app comes pre-configured for deployment to Azure using the Azure Developer CLI (azd). The deployment architecture consists of:
 
