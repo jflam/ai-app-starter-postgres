@@ -1,512 +1,187 @@
-# AI Starter App with PostgreSQL and Prisma
+# Full-Stack AI Starter App (React • Express • PostgreSQL • Azure)
 
-Opinionated full‑stack skeleton meant to be **forked and cloned** so you (or your AI pair‑programmer) can start coding features immediately instead of scaffolding a project from scratch.
+A batteries-included reference app that proves a **React/Vite SPA, an Express + Prisma API, and a PostgreSQL database** can run locally in Docker and go live on Azure with a single `azd up`.
 
-## Repository overview
-This monorepo ships a minimal "random fortune" demo to prove everything works end‑to‑end, but the real goal is to provide a ready‑to‑hack stack for rapid AI‑assisted development:
+Out of the box you get a playful “fortune-cookie” feature—click once and the front-end calls the API, which fetches a random fortune from Postgres. Swap that model for your own data and you instantly have:
 
-• Backend – an Express + Prisma + PostgreSQL API that returns one random fortune
-• Front‑end – a React/Vite SPA that fetches and shows it
-• Docker – containerized development environment for PostgreSQL and API
-• Azure – deployment configuration for Azure Container Apps and Static Web Apps
+* Hot-reload local development (Vite + Nodemon + Docker Compose)  
+* One-command cloud deployment to Azure Container Apps, Static Web Apps, and PostgreSQL Flexible Server  
+* IaC in Bicep, secret management via Key Vault, and a ready-made GitHub Actions pipeline
 
-## Quick Start
-> One-liner productive setup.
+Fork it, rename it, and start shipping real features instead of scaffolding infrastructure.
+
+---
+
+## 1 • What’s Inside?
+
+* **Backend** – Node 20 · Express · Prisma · PostgreSQL. One endpoint: `/api/fortunes/random`.
+* **Frontend** – React + Vite SPA that pipes the fortune onto the screen.
+* **Docker‑first dev** – PostgreSQL and API run in containers so “it works on my machine” means “it works everywhere.”
+* **Azure‑native deploy** – Azure Developer CLI (azd), Bicep IaC, Container Apps, Static Web Apps, PostgreSQL Flexible Server.
+
+Everything lives in a monorepo with clear boundaries (`/server`, `/client`, `/infra`, `/scripts`).
+
+---
+
+## 2 • Quick Start (Local)
 
 ```bash
 git clone https://github.com/<you>/ai-app-starter-postgres.git
 cd ai-app-starter-postgres
-npm run bootstrap    # install & generate Prisma client
-npm run dev          # DB + API (Docker) & React SPA (host)
+npm run bootstrap   # install deps & generate Prisma client
+npm run dev         # spins up DB + API (Docker) & Vite dev server
 ```
 
-• SPA → http://localhost:3000  
-• API → http://localhost:4001  
-• DB  → localhost:5433
+Now open:
 
-## Prerequisites
-To run the stack you need:
-- **Node.js 20 LTS** (npm is bundled)
-- **Docker** (Desktop or Engine)
-- **Azure CLI** and **Azure Developer CLI (azd)** for deployment
-- **uv** - Modern Python package installer
+* **SPA** → [http://localhost:3000](http://localhost:3000)
+* **API** → [http://localhost:4001](http://localhost:4001)
+* **DB**  → `localhost:5433`
+
+---
+
+## 3 • Prerequisites
+
+* **Node 20 LTS** (includes npm)
+* **Docker Desktop 24+**
+* **Azure CLI** & **Azure Developer CLI (azd)** – required only for cloud deployment
+* **uv** – Python package runner (used by helper scripts)
+
+Verify:
 
 ```bash
-# check your versions
-node -v   # → v20.x
-npm -v    # → 10.x
-docker --version # → Docker version 24.x
-az --version # → azure-cli x.x.x
-azd version # → x.x.x
-uv --version # → x.x.x
+node -v   # v20.x
+docker --version   # Docker 24.x
+az --version       # azure‑cli ≥ 2.61
+azd version        # e.g. 1.5.0
+uv --version       # e.g. 0.1.x
 ```
 
-If you need to install or upgrade Node.js:
+> Need Node? Install via `nvm install 20 && nvm use 20` (macOS/Linux) or grab the installer for Windows.
 
-- **nvm (recommended)**  
-  ```bash
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-  nvm install 20
-  nvm use 20
-  ```
+---
 
-- **Homebrew (macOS)**  
-  ```bash
-  brew install node@20
-  ```
+## 4 • Project Layout
 
-- **Windows** – download the 20 LTS installer from <https://nodejs.org> or use `nvm-windows`.
-
-For Docker, download and install Docker Desktop from https://www.docker.com/products/docker-desktop/
-
-For Azure tools:
-```bash
-# Install Azure CLI
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash  # Linux
-brew install azure-cli  # macOS
-# Or download from https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
-
-# Install Azure Developer CLI
-curl -fsSL https://aka.ms/install-azd.sh | bash  # Linux/macOS
-# Or download from https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd
+```
+ai-app-starter-postgres/
+│
+├── client/        # React/Vite SPA
+├── server/        # Express API + Prisma + Dockerfile
+├── infra/         # Bicep IaC + azure.yaml + config
+├── scripts/       # helper Python + shell scripts
+└── package.json   # workspace root scripts
 ```
 
-> After installing, reopen your terminal so all tools are in PATH.
+Each service is self‑contained: its own `package.json`, env file, and build process. The root uses npm workspaces so `npm run <script>` cascades where appropriate.
 
-1. **Fork & clone**
-   ```bash
-   gh repo create your-new-repo --template jflam/ai-app-starter-postgres --private --clone
-   cd your-new-repo
-   ```
+---
 
-2. **Install dependencies**
+## 5 • Local Development Workflow
 
-   **Option A (one‑liner)**  
-   ```bash
-   npm run bootstrap
-   ```
+> Everything in this section runs **only on your machine**—no Azure resources are involved.
 
-   **Option B (manual)**  
-   ```bash
-   npm install          # root
-   cd server && npm install
-   cd ../client && npm install
-   cd ..
-   cd server && npx prisma generate
-   ```
+### Local Dev Server (HMR)
 
-3. **Run the dev stack**
+1. `npm run bootstrap` – one-time install & Prisma client generation  
+2. `npm run dev` – starts **all** services locally:  
+   * PostgreSQL 16 (Docker)  
+   * Express API with hot-reload (Docker)  
+   * Vite dev server with HMR (port 3000)
 
-   ```bash
-   npm run dev
-   ```
+Edit code → save → browser refreshes automatically.
 
-   • React/Vite SPA on **http://localhost:3000**  
-   • Express/Prisma API on **http://localhost:4001** (in Docker)
-   • PostgreSQL on **localhost:5433** (in Docker)
-
-## Deploying to Azure
-
-This project includes infrastructure as code and deployment automation for Azure. The deployment process is managed through the Azure Developer CLI (azd) with additional tooling to check quotas and manage configuration.
-
-### Python Dependencies Setup
-
-The deployment tools require Python packages. Set these up using uv:
+### Local Production Build & Preview
 
 ```bash
-# Initialize Python project in the scripts directory
-cd scripts
-uv init
+npm run build      # compiles server & client for production
+npm run start:prod # serves the built API (Docker) + previews the SPA
 
-# Install required packages
-uv add uvicorn fastapi pydantic rich aiohttp
+---
 
-# Return to project root
-cd ..
-```
+## 6 • Deploy to Azure in One Command
 
-### Configuration
+> All cloud resources are defined in Bicep and orchestrated by `azd`. You *do not* need to click around the Portal.
 
-All Azure resource configurations are centralized in `infra/azure-config.json`. This file defines:
-
-- Required services and their SKUs
-- Database configuration
-- Allowed deployment regions
-- Resource tags and naming conventions
-
-Example configuration:
-```json
-{
-  "required_services": {
-    "postgresql": {
-      "sku": {
-        "name": "Standard_B2s",
-        "tier": "Burstable"
-      },
-      "version": "16",
-      "storage_gb": 32
-    },
-    "container_apps": {
-      "resources": {
-        "cpu": 0.5,
-        "memory": "1Gi"
-      }
-    }
-  }
-}
-```
-
-### Deployment Steps
-
-1. **Check Azure Quotas and Select Region**
-
-   The quota check script will check available capacity and help you select a deployment region:
-
-   ```bash
-   # First, set your subscription ID
-   export AZURE_SUBSCRIPTION_ID="your-subscription-id"
-   
-   # Run the quota check script and select a region
-   uv run scripts/check_azure_quota.py
-   
-   # IMPORTANT: Source the region script in the same terminal
-   source ./set_region.sh
-   ```
-
-   This will:
-   - Check quotas across all configured regions
-   - Display available capacity
-   - Let you select a region with sufficient quota
-   - Create a script to set the deployment region
-
-2. **Configure Azure**
-
-   In the same terminal session:
-
-   ```bash
-   # Login to Azure
-   az login
-   
-   # Set default subscription if needed
-   az account set --subscription <subscription-id>
-   
-   # Initialize Azure Developer CLI environment
-   azd init
-   ```
-
-3. **Set Required Environment Variables**
-
-   ```bash
-   azd env set POSTGRES_ADMIN_PASSWORD "your-secure-password"
-   ```
-
-4. **Deploy**
-
-   ```bash
-   # Deploy using the selected region
-   azd up
-   ```
-
-   The deployment process will:
-   - Generate Bicep parameters from azure-config.json
-   - Create or update Azure resources in the selected region
-   - Build and deploy the application
-   - Configure all necessary connections
-
-### Deployment Architecture
-
-The application deploys the following Azure resources:
-
-- **Azure Container Apps** - Hosts the API
-- **Azure Database for PostgreSQL Flexible Server** - Database
-- **Azure Container Registry** - Stores Docker images
-- **Azure Static Web Apps** - Hosts the front-end
-- **Log Analytics Workspace** - Centralized logging
-
-### Post-Deployment
-
-After deployment completes:
-
-1. **Run Database Migrations**
-   ```bash
-   cd server
-   DATABASE_URL="<connection-string>" npx prisma migrate deploy
-   ```
-
-2. **Seed the Database**
-   ```bash
-   DATABASE_URL="<connection-string>" npx prisma db seed
-   ```
-
-3. **Verify the Deployment**
-   ```bash
-   # Get the deployed endpoints
-   azd show
-   ```
-
-### Troubleshooting
-
-- If deployment fails due to quota issues, run the quota check script and either:
-  - Choose a different region with sufficient quota
-  - Request a quota increase through Azure Portal
-- For database connection issues, verify the firewall rules are correctly configured
-- Check Container Apps logs in Azure Portal for API issues
-- For Static Web App issues, verify the API URL environment variable is correctly set
-
-## Building for production
-
-### 1. Compile the backend (server)
-
-The backend is containerized and can be built with:
+\### Step 1 – Prep Azure
 
 ```bash
-docker compose build api
+az login                        # browser sign‑in
+az account set --subscription <SUB_ID>
+azd init                       # choose env name + region
+azd env set POSTGRES_ADMIN_PASSWORD "$(openssl rand -base64 24)"
 ```
 
-Or running directly:
+\### Step 2 – Quota Check (Optional but Smart)
 
 ```bash
+uv run scripts/check_azure_quota.py   # prints regions with capacity
+source ./set_region.sh                # exports AZURE_LOCATION
+```
+
+\### Step 3 – Ship it
+
+```bash
+azd up        # provisions RG, ACR, Container Apps, Static Web App, Postgres… then deploys code
+```
+
+A few minutes later you’ll get URLs like:
+
+* `https://<static>.azurestaticapps.net`  (SPA)
+* `https://server.<hash>.<region>.azurecontainerapps.io`  (API)
+
+\### Step 4 – Migrate & Seed
+
+```bash
+azd show                          # grab DATABASE_URL secret
 cd server
-npm install        # first‑time only
-npm run build      # emits JS to server/dist/
-NODE_ENV=production node dist/index.js
+DATABASE_URL="<url>" npx prisma migrate deploy
+DATABASE_URL="<url>" npx prisma db seed
 ```
 
-### 2. Build the front‑end (client)
+That’s it—production ready.
+
+---
+
+## 7 • CI/CD with GitHub Actions
+
+Run:
 
 ```bash
-cd client
-npm install        # first‑time only
-npm run build      # outputs static assets to client/dist/
+azd pipeline config
 ```
 
-### 3. Serve the SPA
+The wizard creates a service principal, injects credentials as repo secrets, and writes `.github/workflows/azure-dev.yml`. Every push to `main` redeploys to your chosen environment. Add branch filters or approvals as you wish.
 
-Any static host (Nginx, Netlify, Vercel, S3, etc.) can serve the `client/dist/` folder.
+---
 
-Local preview:
+## 8 • Environment Variables Cheat‑Sheet
 
-```bash
-cd client
-npm run preview    # opens http://localhost:4173
-```
+* `DATABASE_URL` – injected into the Container App as a secret.
+* `PORT` – API port (default 4000).
+* `VITE_API_BASE_URL` – baked into the SPA at build time. **Public, non‑secret.**
 
-### 4. One‑shot helper from the repo root
+Remember: only values prefixed with `VITE_` end up in client‑side JS.
 
-```bash
-npm run bootstrap                     # ensure all deps
-docker compose build api \
-  && (cd client && npm run build)
-```
+---
 
-## Environment variables
+## 9 • Troubleshooting 101
 
-- `PORT` - API port (default 4000 inside the container)
-- `DATABASE_URL` - PostgreSQL connection string
-- `AZURE_SUBSCRIPTION_ID` - Required for quota checks and deployment
+* **Build fails?** Re‑run `npm run bootstrap`.
+* **Container App 502?** `az containerapp logs show --name server -g <rg> --follow`.
+* **CORS issues?** Set `VITE_API_BASE_URL` on the Static Web App.
+* **Quota errors?** Re‑run the quota script or request increases in the Portal.
 
-## Docker Compose configuration
+Run `azd down` to delete the entire environment when finished.
 
-The `docker-compose.yml` defines:
+---
 
-- `db` service - PostgreSQL 16 Alpine with credentials in the compose file
-- `api` service - Node.js API with Prisma connecting to the database
+## 10 • Security Notes
 
-To run only the database:
+* Secrets live in Azure Key Vault and Container App secrets—never in Git.
+* The API pulls images from ACR using a user‑assigned managed identity with *AcrPull* role least privilege.
+* CSP headers in `staticwebapp.config.json` restrict outbound hosts.
 
-```bash
-docker compose up -d db
-```
+---
 
-To rebuild and run the API:
-
-```bash
-docker compose up --build api
-```
-
-To run everything:
-
-```bash
-docker compose up
-```
-
-## Deploy to Azure  
-
-This starter app comes pre-configured for deployment to Azure using the Azure Developer CLI (azd). The deployment architecture consists of:
-
-- **Azure Container App** - Hosts the Express API backend
-- **Azure PostgreSQL Flexible Server** - Managed PostgreSQL database
-- **Azure Static Web App** - Hosts the React frontend
-- **Azure Container Registry** - Stores the Docker image for the API
-
-### Prerequisites for Azure Deployment
-
-1. **Install Azure CLI and Azure Developer CLI (azd)**
-   ```bash
-   # Install Azure CLI
-   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash  # Linux
-   brew install azure-cli                                   # macOS
-   winget install -e --id Microsoft.AzureCLI               # Windows
-   
-   # Install Azure Developer CLI
-   curl -fsSL https://aka.ms/install-azd.sh | bash         # Linux/macOS
-   winget install -e --id Microsoft.Azd                    # Windows
-   ```
-
-2. **Login to Azure**
-   ```bash
-   az login
-   azd auth login
-   ```
-
-### Deploying the Application
-
-1. **Initialize the Azure environment**
-   ```bash
-   azd env new myenv
-   ```
-   Replace `myenv` with your preferred environment name (e.g., dev, staging, prod).
-
-2. **Set database password**
-   ```bash
-   azd env set POSTGRES_ADMIN_PASSWORD "<your-secure-password>"
-   ```
-   Make sure to use a strong password that meets Azure requirements (at least 8 characters with lowercase, uppercase, numbers, and symbols).
-
-3. **Provision resources and deploy the application**
-   ```bash
-   azd up
-   ```
-   This command provisions all Azure resources and deploys both the API and frontend. It may take several minutes to complete.
-
-4. **Verify the deployed application**
-   After successful deployment, you'll see URLs for both services:
-   - Frontend (Static Web App): `https://<random-name>.<hash>.azurestaticapps.net`
-   - Backend API (Container App): `https://server.<unique-id>.<region>.azurecontainerapps.io`
-
-### Environment Configuration
-
-#### Frontend Configuration
-
-The frontend application needs to know the URL of the backend API. There are two ways to configure this:
-
-1. **Runtime Configuration (Option 1) - Recommended**
-
-   Configure application settings in Azure Static Web Apps:
-   ```bash
-   az staticwebapp appsettings set \
-     --name <your-static-webapp-name> \
-     --resource-group <resource-group-name> \
-     --setting-names VITE_API_BASE_URL="https://server.<unique-id>.<region>.azurecontainerapps.io"
-   ```
-
-2. **Build-time Configuration (Option 2)**
-
-   Update the `.env.production` file before building:
-   ```
-   VITE_API_BASE_URL=https://server.<unique-id>.<region>.azurecontainerapps.io
-   ```
-
-#### Database Migrations
-
-Azure Container Apps automatically applies Prisma migrations during startup. If you need to run migrations manually:
-
-```bash
-# Get the connection string from Azure
-DATABASE_URL=$(az containerapp secret show \
-  --name server \
-  --resource-group <resource-group-name> \
-  --secret-name database-url \
-  --query value -o tsv)
-
-# Run migrations
-cd server
-npm run migrate
-```
-
-### CI/CD Pipeline Setup
-
-You can set up a GitHub Actions workflow for continuous deployment:
-
-1. **Configure the GitHub Actions pipeline**
-   ```bash
-   azd pipeline config
-   ```
-   This command will:
-   - Create a service principal for GitHub
-   - Set up the necessary GitHub repository secrets
-   - Generate a workflow file in `.github/workflows/azure-dev.yml`
-
-2. **Push changes to trigger deployment**
-   After the pipeline is configured, any push to the main branch will trigger a deployment to your Azure environment.
-
-### Iterative Development
-
-For local development connected to Azure resources:
-
-1. **Get the Azure database connection string**
-   ```bash
-   az postgres flexible-server show-connection-string \
-     --server-name <postgres-server-name> \
-     --database-name <database-name> \
-     --admin-user <admin-username> \
-     --query connectionString
-   ```
-
-2. **Add your IP to the PostgreSQL firewall rules**
-   ```bash
-   az postgres flexible-server firewall-rule create \
-     --resource-group <resource-group-name> \
-     --name <postgres-server-name> \
-     --rule-name AllowMyIP \
-     --start-ip-address <your-ip-address> \
-     --end-ip-address <your-ip-address>
-   ```
-
-3. **Set environment variables for local development**
-   Create a `.env.local` file in the client directory:
-   ```
-   VITE_API_BASE_URL=http://localhost:4000
-   ```
-
-   Create a `.env` file in the server directory:
-   ```
-   DATABASE_URL=<azure-postgres-connection-string>
-   ```
-
-### Troubleshooting Azure Deployment
-
-If your deployment fails or the application isn't working properly:
-
-1. **Check Container App logs**
-   ```bash
-   az containerapp logs show \
-     --name server \
-     --resource-group <resource-group-name> \
-     --follow
-   ```
-
-2. **Check Static Web App deployment status**
-   ```bash
-   az staticwebapp show \
-     --name <static-webapp-name> \
-     --resource-group <resource-group-name>
-   ```
-
-3. **Common issues**:
-   - **CORS errors**: Ensure the Container App's CORS policy allows requests from the Static Web App domain
-   - **Database connection issues**: Check if the database URL secret is correctly set in the Container App
-   - **Environment variable configuration**: Verify that `VITE_API_BASE_URL` is correctly set in the Static Web App
-
-4. **Clean up resources**
-   If you need to remove all deployed resources:
-   ```bash
-   azd down
-   ```
-
-## Security Considerations
-
-- Environment variables prefixed with `VITE_` are embedded in the client-side code and visible to users
-- Only include non-sensitive information in client-side environment variables
-- Sensitive data like database credentials are securely stored as Container App secrets
-- The Static Web App's Content Security Policy (CSP) in `staticwebapp.config.json` restricts which domains can be connected to
+### Happy shipping! 🎉
